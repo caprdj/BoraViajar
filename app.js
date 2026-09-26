@@ -47,12 +47,13 @@ const $ = sel => document.querySelector(sel);
 const esc = v => String(v ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const date = v => /^\d{4}-\d{2}-\d{2}$/.test(v || '') ? new Date(v+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}).replace('.','') : 'A definir';
 const money = (v, currency='BRL') => { try { return new Intl.NumberFormat('pt-BR',{style:'currency',currency}).format(numeric(v) ?? 0); } catch { return `${esc(currency)} ${numeric(v) ?? 0}`; } };
-const rows = k => state.records[k] || [];
+const rows = k => k === 'orcamento' ? TravelCore.effectiveBudget(state) : state.records[k] || [];
 const titleOf = r => r.nome || r.titulo || r.descricao || [r.origem,r.destino].filter(Boolean).join(' → ') || 'Sem título';
 let page = '', search = '', filter = '', editing = null, importMode = '', toastTimer;
 function toast(msg) { $('#toast').textContent = msg; $('#toast').classList.add('visible'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),4500); }
 function persist(next) {
   if (loadError) { toast('O armazenamento não pôde ser lido. Exporte uma cópia dos dados antes de continuar em outro navegador.'); return false; }
+  try { TravelCore.validateRelations(next); } catch(error) { toast(error.message); return false; }
   try { localStorage.setItem(STORE,JSON.stringify(next)); state=next; storageBlocked=false; return true; }
   catch { storageBlocked=true; toast('Não foi possível salvar. Libere espaço ou permita o armazenamento do navegador.'); return false; }
 }
@@ -67,22 +68,27 @@ function dashboard() {
   const events=[...rows('compromissos')];
   if (!events.length && trip.evento?.nome) events.push({nome:trip.evento.nome,data_inicio:trip.evento.inicio,local:trip.evento.local,status:'DA CONFIGURAÇÃO'});
   events.sort((a,b)=>(a.data_inicio||'9999').localeCompare(b.data_inicio||'9999'));
-  const steps=[['estadias','Definir destinos e datas'],['hoteis','Pesquisar uma hospedagem'],['deslocamentos','Organizar os transportes'],['roteiro','Começar o roteiro diário']];
+  const steps=[['estadias','Organizar as etapas da viagem'],['hoteis','Pesquisar uma hospedagem'],['deslocamentos','Organizar os transportes'],['roteiro','Começar o roteiro diário']];
   const completed=steps.filter(([k])=>rows(k).length).length;
   return heading('Sua próxima história','Tudo o que você precisa para tirar a viagem do papel.')+`
     <section class="hero" aria-label="Viagem atual"><div class="hero-content"><span class="pill">◦ &nbsp; Seu próximo destino</span><h2>${esc(trip.nome)}</h2><p>Saindo de ${esc(trip.origem || 'origem a definir')} · ${esc(trip.destino_principal?.cidade || 'destino a definir')}</p><div class="hero-bottom"><span>▦ &nbsp; ${date(trip.data_inicio)} — ${date(trip.data_fim)}</span><span>·</span><span>${trip.data_fim?'Datas definidas':'Uma viagem em construção'}</span></div></div><span class="hero-badge">NOVOS CAMINHOS, BOAS MEMÓRIAS</span></section>
     <div class="stats">${[
-      ['estadias','Destinos',rows('estadias').length,'estadias cadastradas'],
+      ['estadias','Etapas',rows('estadias').length,'momentos da sua viagem'],
       ['hoteis','Hospedagens',rows('hoteis').length,'opções para comparar'],
       ['roteiro','Meu roteiro',rows('roteiro').length,'atividades planejadas'],
       ['orcamento','Orçamento',totalText(totals),'despesas registradas'],
     ].map(([k,label,value,sub])=>`<a href="#${k}" class="stat"><div class="stat-top">${label}${icon(k)}</div><strong>${value}</strong><small>${sub}</small></a>`).join('')}</div>
+    ${stagesOverview()}
     <div class="dashboard-grid"><div><section class="panel"><div class="section-top"><h2>No horizonte</h2><a class="text-link" href="#compromissos">Ver eventos ↗</a></div>${events.length?events.slice(0,3).map(r=>`<div class="event"><div class="date-box"><strong>${esc(r.data_inicio?.slice(8,10)||'—')}</strong>${esc(date(r.data_inicio).split(' ').slice(1).join(' ').replace('de ',''))}</div><div><span class="tag">${esc(r.status || 'PLANEJADO')}</span><h3>${esc(titleOf(r))}</h3><p>${esc(r.local || 'Local a definir')}</p></div></div>`).join(''):'<p class="muted">Seus próximos compromissos aparecerão aqui.</p>'}</section>
     <section class="panel"><div class="section-top"><h2>Próximos passos</h2><span class="muted">${completed} de 4</span></div>${steps.map(([k,label],i)=>`<a class="task" href="#${k}"><span class="task-number">${rows(k).length?'✓':i+1}</span>${label}<span>↗</span></a>`).join('')}<div class="progress-track"><div style="width:${completed*25}%"></div></div><small class="muted">${completed===4?'As quatro seções já têm registros.':'Cada pequeno passo aproxima você do destino.'}</small></section></div>
     <div><section class="panel inspiration"><span class="eyebrow">DO SEU JEITO</span><h2>Menos pressa.<br>Mais descobertas.</h2><p>Um roteiro com espaço para os seus interesses e para o inesperado.</p><div class="interest-list">${(trip.preferencias?.interesses || []).map(s=>`<span>${esc(s)}</span>`).join('')}</div></section><section class="panel"><div class="section-top"><h2>Seu planejamento, seguro</h2>${icon('dados')}</div><p class="muted">Os dados ficam neste navegador. Exporte um backup para guardar uma cópia ou levar para outro dispositivo.</p><button class="button" data-action="backup">Exportar backup ↗</button></section></div></div>`;
 }
 function recordCard(key,r) {
+  if(key==='estadias') return stageCard(r);
+  if(key==='hoteis') return hotelCard(r);
+  if(key==='orcamento') return expenseCard(r);
   const meta=[];
+  if(r.estadia_id) meta.push(stageName(r.estadia_id));
   if(r.cidade) meta.push(r.cidade);
   if(r.local) meta.push(r.local);
   if(r.data || r.data_inicio || r.data_saida) meta.push(date(r.data || r.data_inicio || r.data_saida)+(r.data_fim?' → '+date(r.data_fim):''));
@@ -96,17 +102,19 @@ function recordCard(key,r) {
 }
 function recordsHTML() {
   const mod=modules[page];
-  let items=rows(page).filter(r=>(!search || Object.values(r).join(' ').toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'))) && (!filter || r.status===filter));
+  let items=rows(page).filter(r=>(!stageFilter || (stageFilter==='unassigned'?!r.estadia_id:r.estadia_id===stageFilter)) && (!search || Object.entries(r).filter(([k])=>k!=='print_data').map(([,v])=>v).join(' ').toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'))) && (!filter || r.status===filter));
+  if(page==='estadias') items=items.sort((a,b)=>(numeric(a.ordem)||0)-(numeric(b.ordem)||0));
   if(page==='roteiro') items=items.toSorted((a,b)=>((a.data||'9999')+(a.hora_inicio||'99')).localeCompare((b.data||'9999')+(b.hora_inicio||'99')));
-  if(!items.length) return `<div class="empty">${icon(page)}<h2>${search||filter?'Nenhum resultado por aqui':'Espaço para os seus planos'}</h2><p>${search||filter?'Experimente outro termo ou remova os filtros.':`Adicione ${mod.singular==='atividade'?'a primeira atividade':`um registro de ${mod.singular}`} ou importe os dados que você já tem em CSV.`}</p>${search||filter?'<button class="button" data-action="clear-search">Limpar filtros</button>':`<button class="button primary" data-action="add">+ Adicionar ${mod.singular}</button>`}</div>`;
+  if(!items.length) return `<div class="empty">${icon(page)}<h2>${search||filter||stageFilter?'Nenhum resultado por aqui':'Espaço para os seus planos'}</h2><p>${search||filter||stageFilter?'Experimente outro termo ou remova os filtros.':`Adicione ${mod.singular==='atividade'?'a primeira atividade':`um registro de ${mod.singular}`} ou importe os dados que você já tem em CSV.`}</p>${search||filter||stageFilter?'<button class="button" data-action="clear-search">Limpar filtros</button>':`<button class="button primary" data-action="add">+ Adicionar ${mod.singular}</button>`}</div>`;
   let previous='';
   return items.map(r=>{let label='';if(page==='roteiro' && r.data!==previous){previous=r.data;label=`<h2 class="timeline-date">${date(r.data)}</h2>`;}return label+recordCard(page,r);}).join('');
 }
 function collection() {
-  const mod=modules[page], totals=budget(rows('orcamento'));
+  const mod=modules[page], totals=budget(scopedExpenses());
   let html=heading(mod.title,mod.description,`<button class="button primary" data-action="add">+ Adicionar</button>`);
-  if(page==='orcamento') html+=`<div class="stats budget-stats"><div class="stat"><div class="stat-top">Total registrado</div><strong>${totalText(totals)}</strong><small>Inclui estimados, confirmados e pagos</small></div><div class="stat"><div class="stat-top">Já pago</div><strong>${totalText(totals,'paid')}</strong><small>Somente despesas com situação PAGO</small></div></div><p class="notice">Registre cada despesa uma vez. Cotações de hotéis e transportes não entram automaticamente no orçamento. Moedas diferentes são somadas separadamente, sem conversão.</p>`;
-  if(page==='hoteis') html+='<p class="notice">Conforto em primeiro lugar. As notas aqui são as publicadas pela fonte. O ranking avançado e a análise de mobilidade continuam disponíveis no notebook original.</p>';
+  html+=stageToolbar();
+  if(page==='orcamento') html+=`<div class="stats budget-stats"><div class="stat"><div class="stat-top">Total registrado</div><strong>${totalText(totals)}</strong><small>Inclui estimados, confirmados e pagos</small></div><div class="stat"><div class="stat-top">Já pago</div><strong>${totalText(totals,'paid')}</strong><small>Somente despesas com situação PAGO</small></div></div><p class="notice">Registre cada despesa uma vez. A hospedagem escolhida de cada etapa entra automaticamente no orçamento. As outras cotações ficam fora do total. Transportes ainda precisam ser lançados como despesa. Moedas diferentes são somadas separadamente, sem conversão.</p>`;
+  if(page==='hoteis') html+='<p class="notice">Compare hotéis por etapa. Toque em Escolher para incluir o custo no orçamento. Isso não efetua uma reserva.</p>';
   if(page==='cenarios') html+='<p class="notice">Os valores dos cenários são estimativas preenchidas por você. A associação automática aos hotéis, transportes e demais escolhas permanece no notebook.</p>';
   const statuses=[...new Set(rows(page).map(r=>r.status).filter(Boolean))];
   return html+`<div class="toolbar"><input class="search" id="search" type="search" placeholder="Buscar em ${mod.short.toLowerCase()}..." aria-label="Buscar registros" value="${esc(search)}">${statuses.length?`<select id="filter" aria-label="Filtrar por situação"><option value="">Todas as situações</option>${statuses.map(s=>`<option ${filter===s?'selected':''}>${esc(s)}</option>`).join('')}</select>`:''}<button class="button" data-action="import-csv">Importar CSV</button><button class="button" data-action="export-csv" ${rows(page).length?'':'disabled'}>Exportar CSV</button></div><div id="records" class="cards">${recordsHTML()}</div>`;
@@ -121,7 +129,8 @@ function render() {
 function fieldHTML(f, values) {
   const value=values[f.key] ?? '', required=f.required?'required':'', wide=f.type==='textarea';
   let input;
-  if(Array.isArray(f.type)) { const opts=[...f.type];if(value && !opts.includes(String(value))) opts.push(String(value));input=`<select name="${f.key}" ${required}><option value="">Selecionar</option>${opts.map(v=>`<option value="${esc(v)}" ${String(value)===v?'selected':''}>${esc(v)}</option>`).join('')}</select>`; }
+  if(f.key==='estadia_id') { input=`<select name="estadia_id" ${required}><option value="">${required?'Selecione uma etapa':'Sem etapa / geral'}</option>${rows('estadias').map(s=>`<option value="${esc(s.estadia_id)}" ${value===s.estadia_id?'selected':''}>${esc(s.nome)}</option>`).join('')}</select>`; }
+  else if(Array.isArray(f.type)) { const opts=[...f.type];if(value && !opts.includes(String(value))) opts.push(String(value));input=`<select name="${f.key}" ${required}><option value="">Selecionar</option>${opts.map(v=>`<option value="${esc(v)}" ${String(value)===v?'selected':''}>${esc(v)}</option>`).join('')}</select>`; }
   else if(wide) input=`<textarea name="${f.key}" ${required}>${esc(value)}</textarea>`;
   else input=`<input name="${f.key}" type="${f.type}" ${f.type==='number'?'min="0" step="any" inputmode="decimal"':''} value="${esc(f.type==='number'?(numeric(value)??''):value)}" ${required} maxlength="2000">`;
   return `<label class="field ${wide?'wide':''}">${esc(f.label)}${f.required?' *':''}${input}</label>`;
@@ -132,16 +141,19 @@ function openEditor(id, settings=false) {
   const old=settings?state.trip:id?rows(page).find(r=>r[mod.id]===id):{};
   if (!old) return;
   editing={key:settings?'trip':page,id,old};
-  const values=settings?{...old,...old.destino_principal,interesses:(old.preferencias?.interesses || []).join(', ')}:{...(!id?{moeda:'BRL',status:page==='orcamento'?'ESTIMADO':'',escala_notas_plataforma:'10'}:{}),...old};
+  const values=settings?{...old,...old.destino_principal,interesses:(old.preferencias?.interesses || []).join(', ')}:{moeda:'BRL',status:page==='orcamento'?'ESTIMADO':'',escala_notas_plataforma:'10',estadia_id:stageFilter==='unassigned'?'':stageFilter,numero_viajantes:1,numero_quartos:1,ordem:id?Math.max(1,rows('estadias').findIndex(s=>s.estadia_id===id)+1):rows('estadias').length+1,divisao:'INDIVIDUAL',status_custo:'ESTIMADO',...old};
   $('#dialog-title').textContent=settings?'Sua viagem':`${id?'Editar':'Adicionar'} ${mod.singular}`;
-  $('#fields').innerHTML=(settings?tripFields:mod.fields).map(f=>fieldHTML(f,values)).join('');
+  $('#fields').innerHTML=(!settings && page==='hoteis'?hotelAssistantHTML(old):'')+(settings?tripFields:mod.fields.filter(f=>page!=='hoteis'||f.key!=='link')).map(f=>fieldHTML(f,values)).join('')+(!settings?'<div id="stage-context" class="field wide muted"></div>':'');
   $('#form-error').textContent=''; $('#editor').showModal();
+  updateStageContext();
 }
 function nextID(key, items) { const mod=modules[key];let n=1;const taken=new Set(items.map(r=>r[mod.id]));while(taken.has(`${mod.prefix}_${String(n).padStart(3,'0')}`))n++;return `${mod.prefix}_${String(n).padStart(3,'0')}`; }
 $('#editor-form').addEventListener('submit', e=>{
   e.preventDefault();if(!editing)return;
   const values=Object.fromEntries(new FormData(e.target).entries());
-  for(const key of Object.keys(values)) values[key]=values[key].trim();
+  for(const key of Object.keys(values)) { if(typeof values[key]==='string')values[key]=values[key].trim(); else delete values[key]; }
+  if(editing.key==='stage-model') { saveStageModel(values); return; }
+  delete values.assist_text;
   const requiredFields=editing.key==='trip'?tripFields:modules[editing.key].fields;
   if(requiredFields.some(f=>f.required && !values[f.key])) { $('#form-error').textContent='Preencha os campos obrigatórios com um valor válido.'; return; }
   const begin=values.data_inicio||values.data_saida, end=values.data_fim||values.data_chegada;
@@ -158,6 +170,17 @@ $('#editor-form').addEventListener('submit', e=>{
   } else {
     const key=editing.key,mod=modules[key];
     const item={...editing.old,...values,[mod.id]:editing.id||nextID(key,next.records[key])};
+    if(key==='hoteis') {
+      item.print_data=editing.printData ?? editing.old.print_data ?? '';
+      if(TravelCore.selected(item) && item.estadia_id!==editing.old.estadia_id) {
+        if(editing.old.status_custo==='PAGO') { $('#form-error').textContent='Revise a situação do custo pago antes de mover a hospedagem para outra etapa.';return; }
+        item.escolhido=false;
+        toast('Etapa alterada. Escolha novamente esta hospedagem na nova etapa.');
+      }
+      if((numeric(item.numero_noites)!==null && (!Number.isInteger(numeric(item.numero_noites)) || numeric(item.numero_noites)<1)) || (numeric(item.numero_quartos)!==null && (!Number.isInteger(numeric(item.numero_quartos)) || numeric(item.numero_quartos)<1))) { $('#form-error').textContent='Noites e quartos devem ser números inteiros maiores que zero.'; return; }
+    }
+    const relationError=recordDateError(key,item,next);
+    if(relationError) { $('#form-error').textContent=relationError;return; }
     if(!item.viagem_id && !['estadias','hoteis'].includes(key))item.viagem_id=state.trip.id;
     if(editing.id) next.records[key]=next.records[key].map(r=>r[mod.id]===editing.id?item:r); else next.records[key].push(item);
   }
@@ -173,10 +196,10 @@ document.addEventListener('click',e=>{
   if(action==='edit')openEditor(button.dataset.id);
   if(action==='close')$('#editor').close();
   if(action==='backup')backup();
-  if(action==='clear-search') { search='';filter='';render(); }
+  if(action==='clear-search') { search='';filter='';stageFilter='';render(); }
   if(action==='export-csv')download(`${page}.csv`,toCSV(rows(page)),'text/csv;charset=utf-8');
   if(['import-csv','restore','import-config'].includes(action)) { importMode=action==='import-csv'?page:action;$('#file-input').accept=action==='import-csv'?'.csv':'.json';$('#file-input').value='';$('#file-input').click(); }
-  if(action==='delete') { const key=page,id=button.dataset.id;const row=rows(key).find(r=>r[modules[key].id]===id);if(row && confirm(`Excluir “${titleOf(row)}”? Esta ação não pode ser desfeita.`)){const next=structuredClone(state);next.records[key]=rows(key).filter(r=>r[modules[key].id]!==id);if(persist(next)){render();toast('Registro excluído.');}} }
+  if(action==='delete') { const key=page,id=button.dataset.id;const row=rows(key).find(r=>r[modules[key].id]===id);if(key==='hoteis' && TravelCore.selected(row||{}) && row.status_custo==='PAGO'){toast('Revise a situação do custo pago antes de excluir a hospedagem.');return;}if(key==='estadias' && Object.entries(state.records).some(([k,list])=>k!=='estadias' && list.some(r=>r.estadia_id===id))) { toast('Esta etapa tem registros vinculados. Reatribua-os antes de excluir.');return; } if(row && confirm(`Excluir “${titleOf(row)}”? ${key==='hoteis' && TravelCore.selected(row)?'O custo automático também será retirado do orçamento. ':''}Esta ação não pode ser desfeita.`)){const next=structuredClone(state);next.records[key]=state.records[key].filter(r=>r[modules[key].id]!==id);if(persist(next)){render();toast('Registro excluído.');}} }
 });
 document.addEventListener('input',e=>{if(e.target.id==='search'){search=e.target.value;$('#records').innerHTML=recordsHTML();}});
 document.addEventListener('change',e=>{if(e.target.id==='filter'){filter=e.target.value;$('#records').innerHTML=recordsHTML();}});
@@ -203,6 +226,7 @@ $('#file-input').addEventListener('change',async e=>{
       const existing=new Set(rows(key).map(r=>r[mod.id]));
       if(ids.some(id=>existing.has(id)) && !confirm('Existem registros com os mesmos identificadores. Atualizar esses registros com os dados do CSV?'))return;
       for(const r of incoming) {
+        if(key==='orcamento' && String(r.custo_id).startsWith('AUTO_HOTEL_')) {r.custo_id=r.custo_id.replace('AUTO_HOTEL_','IMPORTADO_HOTEL_');r.automatico=false;}
         if(!r[mod.id])r[mod.id]=nextID(key,[...next.records[key],...incoming]);
         const i=next.records[key].findIndex(old=>old[mod.id]===r[mod.id]);
         if(i>=0)next.records[key][i]={...next.records[key][i],...r};else next.records[key].push(r);
@@ -211,6 +235,7 @@ $('#file-input').addEventListener('change',async e=>{
     if(persist(next)){render();toast('Dados importados e salvos.');}
   } catch(error) { toast(error instanceof SyntaxError?'Arquivo JSON inválido. Verifique o arquivo selecionado.':error.message); }
 });
-window.addEventListener('hashchange',()=>{search='';filter='';render();window.scrollTo(0,0);});
+window.addEventListener('hashchange',()=>{search='';filter='';stageFilter='';render();window.scrollTo(0,0);});
 window.addEventListener('storage',e=>{if(e.key===STORE && e.newValue){try{state=validateBackup(JSON.parse(e.newValue));if($('#editor').open){$('#editor').close();toast('Dados atualizados em outra aba. Abra o registro novamente.');}render();}catch{toast('A atualização de outra aba não pôde ser carregada.');}}});
+configureStages();
 render();

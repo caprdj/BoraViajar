@@ -24,7 +24,26 @@ O planejamento é armazenado no navegador de cada dispositivo. Não existe sincr
 
 Destinos, hospedagens, transportes, lugares, compromissos, roteiro diário, orçamento por moeda e cenários. Cadastros, pesquisa, importação/exportação CSV e backup JSON. Os cálculos avançados do notebook original não fazem parte desta interface.
 
+### Etapas, companhia e hospedagem
+
+Em **Mais → Etapas**, crie os momentos da viagem ou use o modelo de três etapas (congresso e turismo em dois destinos). O modelo sugere 1 viajante no congresso e 2 no turismo; o número é editável, e as datas precisam ser informadas. Os registros antigos de estadias passam a ser apresentados como etapas, mantendo seus IDs e os dados existentes.
+
+Cada etapa tem ordem, cidade, datas, número de viajantes e acompanhantes. Hospedagens, atividades, eventos, lugares, transportes e despesas podem ser vinculados à etapa. O roteiro e os compromissos são validados contra as datas da etapa ao salvar seus formulários. As listagens têm filtro por etapa.
+
+Cadastre várias opções em **Hospedagens**. O botão **Escolher e incluir no orçamento** mantém uma escolha por etapa. O custo automático usa o total cotado (já incluindo quartos e taxas) ou, se vazio, diária por quarto × noites × quartos. Noites em branco seguem as datas da etapa. Totais cotados não mudam com as datas; confira a validade da oferta antes de reservar. Escolher não faz uma reserva no hotel.
+
+O orçamento mostra o custo total e sua parte. **INDIVIDUAL** significa que você paga o total; **IGUAL** divide pelo número de viajantes da etapa; **PERSONALIZADO** usa o valor informado. Alterar a escolha substitui o custo automático. Custos automáticos são editados pela hospedagem, inclusive a situação ESTIMADO/CONFIRMADO/PAGO. Uma escolha marcada como paga exige revisão dessa situação antes de ser retirada ou trocada.
+
+Despesas manuais vinculadas ao mesmo `hotel_id` têm prioridade sobre o custo automático, para evitar duplicação. Despesas manuais nunca são apagadas ao trocar uma escolha. Registros manuais sem `hotel_id` não podem ser reconhecidos como duplicados: revise-os ao escolher um hotel já lançado. Despesas automáticas exportadas em CSV voltam como manuais na importação; prefira o backup JSON para transferir todas as relações fielmente.
+
+### Cadastro por link e print
+
+No formulário da hospedagem, cole o endereço e toque em **Ler link**. A fonte vem do domínio e as noites vêm das datas no endereço, quando presentes. Links de hotel do Booking também podem sugerir o nome. O app não acessa o conteúdo das páginas de reserva, não busca preços em tempo real e não substitui campos já preenchidos.
+
+Use **Anexar print → Ler texto do print** para leitura local com [Tesseract.js](https://github.com/naptha/tesseract.js), versão 6.0.1. A primeira leitura baixa a biblioteca e os modelos de idioma pela internet. A imagem é processada no aparelho, sem envio a um serviço de OCR. Textos identificados ficam disponíveis para revisão; somente preços com rótulo explícito de diária ou total são sugeridos. Também é possível colar o texto da oferta. A leitura pode errar, especialmente em imagens pequenas ou com várias ofertas; confira todos os campos.
+
+Prints JPG/PNG/WebP de até 10 MB são reduzidos para armazenamento local. O backup JSON inclui os prints; CSV não inclui imagens. Muitos prints podem esgotar o armazenamento do navegador: o app informa a falha e mantém o formulário aberto para corrigir, sem descartar silenciosamente os dados anteriores.
+
 ## Atualizações
 
 Os arquivos deste repositório são a versão estática pronta para publicação. Alterações na branch `main` são publicadas pelo GitHub Pages após sua ativação. O identificador interno de armazenamento `meu-percurso-v1` foi mantido para preservar compatibilidade com a versão anterior.
-
