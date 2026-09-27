@@ -31,18 +31,18 @@ const modules = {
 };
 const defaultTrip = {"id": "minha_viagem", "nome": "Minha próxima viagem", "origem": "", "destino_principal": {"cidade": "", "estado": ""}, "data_inicio": null, "data_fim": null, "motivo": "", "evento": {}, "destinos_adicionais": [], "preferencias": {"ritmo": "moderado", "interesses": [], "baixa_prioridade": []}};
 const initial = () => ({version:1,trip:structuredClone(defaultTrip),records:Object.fromEntries(Object.keys(modules).map(k=>[k,[]]))});
-let state = initial(), storageBlocked = false, loadError = false;
-function validateBackup(data) {
-  if (!data || data.version !== 1 || !data.trip || typeof data.trip.nome !== 'string' || !data.trip.nome.trim() || typeof data.trip.id !== 'string' || !data.records) throw new Error('Backup incompatível. Selecione um backup do Bora Viajar.');
-  for (const k of Object.keys(modules)) {
-    if (!Array.isArray(data.records[k]) || data.records[k].some(r => !r || typeof r !== 'object' || Array.isArray(r) || Object.values(r).some(v => v !== null && typeof v === 'object'))) throw new Error(`Dados inválidos na seção ${k}.`);
-    const ids = data.records[k].map(r=>r[modules[k].id]);
-    if (ids.some(id=>typeof id !== 'string' || !id) || new Set(ids).size !== ids.length) throw new Error(`Identificadores inválidos ou repetidos em ${k}.`);
+let library = TravelTrips.migrate(initial()), state = TravelTrips.view(library), storageBlocked = false, loadError = false, storedSnapshot = null;
+try {
+  const raw=localStorage.getItem(STORE);storedSnapshot=raw;
+  if(raw) {
+    const parsed=JSON.parse(raw), migrated=TravelTrips.migrate(parsed);
+    if(parsed.version===1) {
+      localStorage.setItem(STORE+'-antes-migracao-v2',raw);
+      const serialized=JSON.stringify(migrated);localStorage.setItem(STORE,serialized);storedSnapshot=serialized;
+    }
+    library=migrated;state=TravelTrips.view(library);
   }
-  if (data.trip.preferencias?.interesses && !Array.isArray(data.trip.preferencias.interesses)) throw new Error('Preferências inválidas.');
-  return data;
-}
-try { const raw = localStorage.getItem(STORE); if (raw) state = validateBackup(JSON.parse(raw)); } catch { storageBlocked = true; loadError = true; }
+} catch { storageBlocked=true;loadError=true; }
 const $ = sel => document.querySelector(sel);
 const esc = v => String(v ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const date = v => /^\d{4}-\d{2}-\d{2}$/.test(v || '') ? new Date(v+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}).replace('.','') : 'A definir';
@@ -53,13 +53,16 @@ let page = '', search = '', filter = '', editing = null, importMode = '', toastT
 function toast(msg) { $('#toast').textContent = msg; $('#toast').classList.add('visible'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),4500); }
 function persist(next) {
   if (loadError) { toast('O armazenamento não pôde ser lido. Exporte uma cópia dos dados antes de continuar em outro navegador.'); return false; }
-  try { TravelCore.validateRelations(next); } catch(error) { toast(error.message); return false; }
-  try { localStorage.setItem(STORE,JSON.stringify(next)); state=next; storageBlocked=false; return true; }
-  catch { storageBlocked=true; toast('Não foi possível salvar. Libere espaço ou permita o armazenamento do navegador.'); return false; }
+  try {
+    const all=next.trips?TravelTrips.validate(next):TravelTrips.merge(library,next);
+    if(localStorage.getItem(STORE)!==storedSnapshot) throw new Error('Os dados mudaram em outra aba. Recarregue a página antes de salvar.');
+    const serialized=JSON.stringify(all);localStorage.setItem(STORE,serialized);
+    storedSnapshot=serialized;library=all;state=TravelTrips.view(library);storageBlocked=false;return true;
+  } catch(error) { toast('Não foi possível salvar. '+error.message);return false; }
 }
 function nav() {
-  const items = [['inicio','Visão geral'],...Object.entries(modules).map(([k,v])=>[k,v.short]),['dados','Meus dados'],['mais','Mais']];
-  $('#navigation').innerHTML=items.map(([k,label])=>`<a href="#${k}" class="nav-item ${['inicio','roteiro','hoteis','orcamento','mais'].includes(k)?'mobile-nav':''} ${k==='mais'?'mobile-only':''} ${page===k?'active':''}" ${page===k?'aria-current="page"':''}>${icon(k)}<span>${label}</span>${modules[k]?`<span class="count">${rows(k).length || '—'}</span>`:''}</a>`).join('');
+  const items = [['viagens','Minhas viagens'],...(state.trip?[['inicio','Visão geral'],...Object.entries(modules).map(([k,v])=>[k,v.short])]:[]),['dados','Meus dados'],['mais','Mais']];
+  $('#navigation').innerHTML=items.map(([k,label])=>`<a href="#${k}" class="nav-item ${(['viagens','roteiro','hoteis','orcamento','mais'].includes(k) || (!state.trip && k==='dados'))?'mobile-nav':''} ${k==='mais'?'mobile-only':''} ${page===k?'active':''}" ${page===k?'aria-current="page"':''}>${icon(k)}<span>${label}</span>${modules[k]?`<span class="count">${rows(k).length || '—'}</span>`:''}</a>`).join('');
 }
 function heading(title,subtitle,action='') { return `<div class="page-heading"><div><span class="eyebrow">PLANEJAR TAMBÉM É PARTE DA VIAGEM</span><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div>${action}</div>`; }
 function totalText(totals, key='total') { return Object.entries(totals).map(([c,v])=>money(v[key],c)).join(' + ') || money(0); }
@@ -119,12 +122,14 @@ function collection() {
   const statuses=[...new Set(rows(page).map(r=>r.status).filter(Boolean))];
   return html+`<div class="toolbar"><input class="search" id="search" type="search" placeholder="Buscar em ${mod.short.toLowerCase()}..." aria-label="Buscar registros" value="${esc(search)}">${statuses.length?`<select id="filter" aria-label="Filtrar por situação"><option value="">Todas as situações</option>${statuses.map(s=>`<option ${filter===s?'selected':''}>${esc(s)}</option>`).join('')}</select>`:''}<button class="button" data-action="import-csv">Importar CSV</button><button class="button" data-action="export-csv" ${rows(page).length?'':'disabled'}>Exportar CSV</button></div><div id="records" class="cards">${recordsHTML()}</div>`;
 }
-function dataPage() { return heading('Seus dados, com você','Guarde uma cópia do planejamento e continue de onde parou.')+`<div class="notice">Os dados são salvos apenas neste navegador e neste endereço. Não há sincronização automática entre computador e celular. Mantenha um backup antes de limpar o navegador ou mudar de endereço.</div><div class="data-grid"><section class="panel"><h2>Backup completo</h2><p>Salve a configuração da viagem e todos os registros em um arquivo JSON.</p><button class="button primary" data-action="backup">Exportar backup</button><button class="button" data-action="restore">Restaurar backup</button></section><section class="panel"><h2>Do notebook para o app</h2><p>Em cada seção, use “Importar CSV” e selecione o arquivo correspondente da pasta <strong>01_dados</strong> do seu Google Drive. As colunas extras são preservadas.</p><p>O notebook enviado contém código e saídas de execução; os bancos CSV não vieram junto. Por isso, nenhuma hospedagem, reserva ou despesa foi presumida.</p><button class="button" data-action="import-config">Importar config_viagem.json</button></section><section class="panel"><h2>Acesso pelo celular</h2><p>Na versão hospedada, abra o endereço do Bora Viajar no navegador do celular. No iPhone, use Compartilhar → Adicionar à Tela de Início. No Android, procure Adicionar à tela inicial ou Instalar app no menu do navegador.</p><p>O endereço hospedado funciona sem o computador ligado e precisa de internet. Para transferir seu planejamento da versão local, exporte o backup e restaure-o neste endereço.</p></section><section class="panel"><h2>Sua base original</h2><p>Esta interface facilita o planejamento diário. O notebook continua responsável pelos cálculos avançados de ranking, geocodificação e mobilidade.</p><p>Os dados do navegador não alteram os arquivos do notebook. Para intercâmbio, use os arquivos CSV; para uma cópia fiel de todo o app, use o backup JSON.</p></section></div>`; }
+function dataPage() { return heading('Seus dados, com você','Guarde uma cópia do planejamento e continue de onde parou.')+`<div class="notice">Os dados são salvos apenas neste navegador e neste endereço. Não há sincronização automática entre computador e celular. Mantenha um backup antes de limpar o navegador ou mudar de endereço.</div><div class="data-grid"><section class="panel"><h2>Backup completo</h2><p>Salve todas as viagens, suas configurações e registros em um arquivo JSON.</p><button class="button primary" data-action="backup">Exportar backup</button><button class="button" data-action="restore">Restaurar backup</button></section><section class="panel"><h2>Do notebook para o app</h2><p>Em cada seção, use “Importar CSV” e selecione o arquivo correspondente da pasta <strong>01_dados</strong> do seu Google Drive. As colunas extras são preservadas.</p><p>O notebook enviado contém código e saídas de execução; os bancos CSV não vieram junto. Por isso, nenhuma hospedagem, reserva ou despesa foi presumida.</p><button class="button" data-action="import-config">Importar config_viagem.json</button></section><section class="panel"><h2>Acesso pelo celular</h2><p>Na versão hospedada, abra o endereço do Bora Viajar no navegador do celular. No iPhone, use Compartilhar → Adicionar à Tela de Início. No Android, procure Adicionar à tela inicial ou Instalar app no menu do navegador.</p><p>O endereço hospedado funciona sem o computador ligado e precisa de internet. Para transferir seu planejamento da versão local, exporte o backup e restaure-o neste endereço.</p></section><section class="panel"><h2>Sua base original</h2><p>Esta interface facilita o planejamento diário. O notebook continua responsável pelos cálculos avançados de ranking, geocodificação e mobilidade.</p><p>Os dados do navegador não alteram os arquivos do notebook. Para intercâmbio, use os arquivos CSV; para uma cópia fiel de todo o app, use o backup JSON.</p></section></div>`; }
 function render() {
-  const requested=location.hash.slice(1)||'inicio';
-  page=Object.hasOwn(modules,requested)||['inicio','dados','mais'].includes(requested)?requested:'inicio';
-  nav(); $('#breadcrumb').textContent=modules[page]?.title || ({inicio:'Visão geral',dados:'Meus dados',mais:'Mais opções'}[page]);
-  $('#main').innerHTML=(storageBlocked?'<p class="notice" role="alert">O armazenamento do navegador não está disponível ou o backup salvo é incompatível. Os dados existentes não serão sobrescritos. Exporte o que conseguir recuperar e verifique as permissões do navegador.</p>':'')+(page==='inicio'?dashboard():page==='dados'?dataPage():page==='mais'?heading('Tudo para a viagem','Encontre cada detalhe do seu planejamento.')+`<div class="more-grid">${[...Object.entries(modules).map(([k,v])=>[k,v.title]),['dados','Meus dados']].map(([k,label])=>`<a href="#${k}">${icon(k)}${label}</a>`).join('')}</div>`:collection());
+  const requested=location.hash.slice(1)||'viagens';
+  page=Object.hasOwn(modules,requested)||['viagens','inicio','dados','mais'].includes(requested)?requested:'viagens';
+  if(!state.trip && page!=='dados')page='viagens';
+  renderTripSwitcher();
+  nav(); $('#breadcrumb').textContent=modules[page]?.title || ({viagens:'Minhas viagens',inicio:'Visão geral',dados:'Meus dados',mais:'Mais opções'}[page]);
+  $('#main').innerHTML=(storageBlocked?'<p class="notice" role="alert">O armazenamento do navegador não está disponível ou o backup salvo é incompatível. Os dados existentes não serão sobrescritos. Exporte o que conseguir recuperar e verifique as permissões do navegador.</p>':'')+(page==='viagens'?tripsPage():page==='inicio'?dashboard():page==='dados'?dataPage():page==='mais'?heading('Tudo para a viagem','Encontre cada detalhe do seu planejamento.')+`<div class="more-grid">${[...Object.entries(modules).map(([k,v])=>[k,v.title]),['viagens','Minhas viagens'],['dados','Meus dados']].map(([k,label])=>`<a href="#${k}">${icon(k)}${label}</a>`).join('')}</div>`:collection());
 }
 function fieldHTML(f, values) {
   const value=values[f.key] ?? '', required=f.required?'required':'', wide=f.type==='textarea';
@@ -135,7 +140,7 @@ function fieldHTML(f, values) {
   else input=`<input name="${f.key}" type="${f.type}" ${f.type==='number'?'min="0" step="any" inputmode="decimal"':''} value="${esc(f.type==='number'?(numeric(value)??''):value)}" ${required} maxlength="2000">`;
   return `<label class="field ${wide?'wide':''}">${esc(f.label)}${f.required?' *':''}${input}</label>`;
 }
-const tripFields=[field('nome','Nome da viagem','text',true),field('origem','Origem'),field('cidade','Destino principal'),field('estado','Estado'),field('data_inicio','Data de início','date'),field('data_fim','Data de retorno','date'),field('motivo','Motivo da viagem'),field('interesses','Interesses (separados por vírgula)')];
+const tripFields=[field('situacao','Situação',['EM ANÁLISE','PLANEJADA','CONFIRMADA','CONCLUÍDA','CANCELADA']),field('nome','Nome da viagem','text',true),field('origem','Origem'),field('cidade','Destino principal'),field('estado','Estado'),field('data_inicio','Data de início','date'),field('data_fim','Data de retorno','date'),field('motivo','Motivo da viagem'),field('interesses','Interesses (separados por vírgula)')];
 function openEditor(id, settings=false) {
   const mod=modules[page];
   const old=settings?state.trip:id?rows(page).find(r=>r[mod.id]===id):{};
@@ -163,10 +168,12 @@ $('#editor-form').addEventListener('submit', e=>{
     const scale=numeric(values.escala_notas_plataforma);
     if(['nota','nota_conforto_plataforma'].some(k=>numeric(values[k])!==null && (!scale || numeric(values[k])>scale))) { $('#form-error').textContent='Informe a escala e use notas entre zero e o máximo da escala.'; return; }
   }
-  const next=structuredClone(state);
+  let next=structuredClone(state);
   if(editing.key==='trip') {
     const {cidade,estado,interesses,...rest}=values;
-    next.trip={...next.trip,...rest,destino_principal:{...next.trip.destino_principal,cidade,estado},preferencias:{...next.trip.preferencias,interesses:interesses.split(',').map(v=>v.trim()).filter(Boolean)}};
+    const base=editing.newTrip?editing.old:next.trip;
+    next.trip={...base,...rest,destino_principal:{...base.destino_principal,cidade,estado},preferencias:{...base.preferencias,interesses:interesses.split(',').map(v=>v.trim()).filter(Boolean)}};
+    if(editing.newTrip)next=TravelTrips.add(library,next.trip);
   } else {
     const key=editing.key,mod=modules[key];
     const item={...editing.old,...values,[mod.id]:editing.id||nextID(key,next.records[key])};
@@ -181,17 +188,17 @@ $('#editor-form').addEventListener('submit', e=>{
     }
     const relationError=recordDateError(key,item,next);
     if(relationError) { $('#form-error').textContent=relationError;return; }
-    if(!item.viagem_id && !['estadias','hoteis'].includes(key))item.viagem_id=state.trip.id;
+    item.viagem_id=state.trip.id;
     if(editing.id) next.records[key]=next.records[key].map(r=>r[mod.id]===editing.id?item:r); else next.records[key].push(item);
   }
   if(persist(next)) { $('#editor').close();render();toast('Alterações salvas neste navegador.'); }
 });
 function download(name,content,type) { const url=URL.createObjectURL(new Blob([content],{type})); const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000); }
-function backup() { download(`bora-viajar-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(state,null,2),'application/json'); }
+function backup() { download(`bora-viajar-${new Date().toISOString().slice(0,10)}.json`,loadError?(localStorage.getItem(STORE)||'{}'):JSON.stringify(library,null,2),'application/json'); }
 document.addEventListener('click',e=>{
   const button=e.target.closest('[data-action]');if(!button)return;
   const action=button.dataset.action;
-  if(action==='settings')openEditor(null,true);
+  if(action==='settings' && state.trip)openEditor(null,true);
   if(action==='add')openEditor();
   if(action==='edit')openEditor(button.dataset.id);
   if(action==='close')$('#editor').close();
@@ -205,17 +212,22 @@ document.addEventListener('input',e=>{if(e.target.id==='search'){search=e.target
 document.addEventListener('change',e=>{if(e.target.id==='filter'){filter=e.target.value;$('#records').innerHTML=recordsHTML();}});
 $('#file-input').addEventListener('change',async e=>{
   const file=e.target.files[0];if(!file)return;
+  const importSnapshot=storedSnapshot, importingTrip=library.active_trip_id, mode=importMode;
   try {
     if(file.size>10*1024*1024)throw new Error('Selecione um arquivo de até 10 MB.');
-    const text=await file.text();let next=structuredClone(state);
+    const text=await file.text();
+    if(importSnapshot!==storedSnapshot || importingTrip!==library.active_trip_id || mode!==importMode)throw new Error('A viagem ou os dados mudaram durante a leitura. Selecione o arquivo novamente.');
+    let next=structuredClone(state);
     if(importMode==='restore') {
-      next=validateBackup(JSON.parse(text));
+      next=TravelTrips.migrate(JSON.parse(text));
       if(!confirm('Restaurar este backup substituirá os dados atuais deste navegador. Deseja continuar?'))return;
       backup();
+      if(loadError)throw new Error('Recarregue ou recupere os dados originais antes de restaurar.');
+      localStorage.setItem(STORE+'-antes-restauracao',localStorage.getItem(STORE)||JSON.stringify(library));
     } else if(importMode==='import-config') {
       const trip=JSON.parse(text);
       if(!trip || typeof trip.nome!=='string' || !trip.nome.trim() || typeof trip.id!=='string' || (trip.preferencias?.interesses && !Array.isArray(trip.preferencias.interesses)))throw new Error('Configuração de viagem inválida.');
-      if(trip.id!==state.trip.id && Object.values(state.records).some(v=>v.length))throw new Error('Esta configuração pertence a outra viagem. Exporte seu backup antes de começar uma nova viagem em outro navegador.');
+      if(!state.trip || trip.id!==state.trip.id)throw new Error('Esta configuração pertence a outra viagem. Abra ou crie a viagem correspondente antes de importar.');
       next.trip=trip;
     } else {
       const key=importMode,mod=modules[key],incoming=parseCSV(text);
@@ -236,6 +248,14 @@ $('#file-input').addEventListener('change',async e=>{
   } catch(error) { toast(error instanceof SyntaxError?'Arquivo JSON inválido. Verifique o arquivo selecionado.':error.message); }
 });
 window.addEventListener('hashchange',()=>{search='';filter='';stageFilter='';render();window.scrollTo(0,0);});
-window.addEventListener('storage',e=>{if(e.key===STORE && e.newValue){try{state=validateBackup(JSON.parse(e.newValue));if($('#editor').open){$('#editor').close();toast('Dados atualizados em outra aba. Abra o registro novamente.');}render();}catch{toast('A atualização de outra aba não pôde ser carregada.');}}});
+window.addEventListener('storage',e=>{
+  if(e.key!==STORE && e.key!==null)return;
+  try {
+    if(!e.newValue)throw new Error('Armazenamento removido');
+    library=TravelTrips.migrate(JSON.parse(e.newValue));state=TravelTrips.view(library);storedSnapshot=e.newValue;loadError=false;storageBlocked=false;
+    if($('#editor').open)$('#editor').close();
+    search='';filter='';stageFilter='';editing=null;render();toast('Dados atualizados em outra aba.');
+  } catch { loadError=true;storageBlocked=true;render();toast('A atualização de outra aba não pôde ser carregada. Recarregue a página.'); }
+});
 configureStages();
 render();

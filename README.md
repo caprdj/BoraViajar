@@ -2,6 +2,10 @@
 
 Planejador pessoal de viagens com interface adaptada ao celular.
 
+Este repositório reúne a fonte principal, os testes e as ferramentas locais. Para desenvolver em outro computador, consulte [DESENVOLVIMENTO.md](DESENVOLVIMENTO.md). A estrutura e a recuperação dos dados estão descritas em [MIGRACAO_V2.md](MIGRACAO_V2.md).
+
+Versão 2.0: organize múltiplas viagens, alterne pelo seletor no cabeçalho e gerencie cada planejamento em “Minhas viagens”. Backups JSON incluem todas as viagens. Dados e backups da versão anterior são migrados automaticamente, preservando etapas e registros. Faça a atualização usando todos os arquivos de `dist/`, incluindo `trips.js` e `trips-ui.js`.
+
 ## Publicar com GitHub Pages
 
 No repositório, abra **Settings → Pages**. Em **Source**, escolha **Deploy from a branch**; selecione **main** e **/(root)** e clique em **Save**.
@@ -46,4 +50,4 @@ Prints JPG/PNG/WebP de até 10 MB são reduzidos para armazenamento local. O bac
 
 ## Atualizações
 
-Os arquivos deste repositório são a versão estática pronta para publicação. Alterações na branch `main` são publicadas pelo GitHub Pages após sua ativação. O identificador interno de armazenamento `meu-percurso-v1` foi mantido para preservar compatibilidade com a versão anterior.
+Os recursos estáticos na raiz são a fonte do site, acompanhados de testes e ferramentas de desenvolvimento. Alterações na branch `main` são publicadas pelo GitHub Pages após sua ativação. O identificador interno de armazenamento `meu-percurso-v1` foi mantido; o conteúdo agora usa o schema 2, com migração automática e cópia preventiva.

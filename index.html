@@ -11,21 +11,23 @@
   <meta name="description" content="Seu espaço pessoal para planejar viagens com calma.">
   <title>Bora Viajar · Planejador de viagens</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=20260926-etapas">
-  <script src="core.js?v=20260926-etapas" defer></script>
-  <script src="stages.js?v=20260926-etapas" defer></script>
-  <script src="app.js?v=20260926-etapas" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20260926-v2">
+  <script src="core.js?v=20260926-v2" defer></script>
+  <script src="trips.js?v=20260926-v2" defer></script>
+  <script src="trips-ui.js?v=20260926-v2" defer></script>
+  <script src="stages.js?v=20260926-v2" defer></script>
+  <script src="app.js?v=20260926-v2" defer></script>
 </head>
 <body>
   <a class="skip" href="#main">Pular para o conteúdo</a>
   <aside class="sidebar">
-    <a href="#inicio" class="brand"><span class="brand-icon">↗</span><span>Bora Viajar<small>VIAJAR COMEÇA AQUI</small></span></a>
+    <a href="#viagens" class="brand"><span class="brand-icon">↗</span><span>Bora Viajar<small>VIAJAR COMEÇA AQUI</small></span></a>
     <div class="nav-caption">SEU PLANEJAMENTO</div>
     <nav id="navigation" aria-label="Seções do planejamento"></nav>
     <div class="sidebar-bottom"><span class="local-dot"></span> Seu espaço pessoal<small>Dados salvos neste navegador</small><a href="#dados">Backup e importação ↗</a></div>
   </aside>
   <div class="workspace">
-    <header class="topbar"><span>BORA VIAJAR <span class="slash">/</span> <strong id="breadcrumb">Visão geral</strong></span><button class="button subtle" data-action="settings">Configurar viagem <span aria-hidden="true">↗</span></button></header>
+    <header class="topbar"><span>BORA VIAJAR <span class="slash">/</span> <strong id="breadcrumb">Visão geral</strong></span><label class="trip-switch-label">Viagem <select id="trip-switcher" aria-label="Trocar viagem"></select></label><button class="button subtle" data-action="settings">Configurar viagem <span aria-hidden="true">↗</span></button></header>
     <main id="main" tabindex="-1"></main>
     <footer>Feito para planejar com calma. <span>Um destino de cada vez.</span></footer>
   </div>

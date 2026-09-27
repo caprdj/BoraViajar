@@ -1,0 +1,24 @@
+# Generated output and local tooling
+dist/
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+.env
+.env.*
+!.env.example
+playwright-report/
+test-results/
+tests/viagens-*.png
+previa-*.png
+
+# Personal travel data must stay outside the repository
+*.ipynb
+*.csv
+*.pdf
+*backup*.json
+meu-percurso-*.json
+bora-viajar-*.json
+config_viagem.json
+backups/
+dados/
