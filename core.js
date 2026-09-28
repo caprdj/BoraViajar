@@ -76,7 +76,7 @@
     return total;
   }
   function effectiveBudget(state) {
-    const manual = state.records.orcamento.filter(r => !String(r.custo_id).startsWith('AUTO_HOTEL_'));
+    const manual = state.records.orcamento.filter(r => !String(r.custo_id).startsWith('AUTO_'));
     const generated = state.records.hoteis.filter(selected).map(h => {
       const stage = state.records.estadias.find(s => s.estadia_id === h.estadia_id);
       const cost = hotelCost(h, stage);
@@ -88,7 +88,17 @@
         valor: cost.total, moeda: 'BRL', status: h.status_custo || 'ESTIMADO', data: stage.data_inicio || '',
         divisao: h.divisao || 'INDIVIDUAL', minha_parte: h.minha_parte ?? '', automatico: true };
     }).filter(Boolean);
-    return [...manual, ...generated];
+    const transport = (state.records.deslocamentos || []).map(r => {
+      const value=number(r.preco);
+      if(value===null || value<0 || manual.some(e=>e.deslocamento_id===r.deslocamento_id && String(e.status).toUpperCase()!=='CANCELADO')) return null;
+      return {custo_id:'AUTO_TRANSPORTE_'+r.deslocamento_id,deslocamento_id:r.deslocamento_id,estadia_id:r.estadia_id||'',viagem_id:state.trip.id,categoria:'TRANSPORTE',descricao:[r.origem,r.destino].filter(Boolean).join(' → ')||r.empresa||'Transporte',valor:value,moeda:r.moeda||'BRL',status:r.status_custo||'ESTIMADO',data:r.data_saida||'',automatico:true};
+    }).filter(Boolean);
+    const food = (state.records.alimentacao || []).map(r => {
+      const value=number(r.valor);
+      if(value===null || value<0 || manual.some(e=>e.alimentacao_id===r.alimentacao_id && String(e.status).toUpperCase()!=='CANCELADO')) return null;
+      return {custo_id:'AUTO_ALIMENTACAO_'+r.alimentacao_id,alimentacao_id:r.alimentacao_id,estadia_id:r.estadia_id||'',viagem_id:state.trip.id,categoria:'ALIMENTAÇÃO',descricao:r.descricao||r.tipo||'Alimentação',valor:value,moeda:r.moeda||'BRL',status:r.status_custo||'ESTIMADO',data:r.data||'',automatico:true};
+    }).filter(Boolean);
+    return [...manual, ...generated, ...transport, ...food];
   }
   function chooseHotel(state, id) {
     const next = structuredClone(state), hotel = next.records.hoteis.find(h => h.hotel_id === id);
