@@ -6,9 +6,11 @@ Este repositório reúne a fonte principal, os testes e as ferramentas locais. P
 
 Versão 2.0: organize múltiplas viagens, alterne pelo seletor no cabeçalho e gerencie cada planejamento em “Minhas viagens”. Backups JSON incluem todas as viagens. Dados e backups da versão anterior são migrados automaticamente, preservando etapas e registros. Faça a atualização usando todos os arquivos de `dist/`, incluindo `trips.js` e `trips-ui.js`.
 
+Versão 2.1: selecione duas ou mais viagens em “Minhas viagens” para comparar lado a lado período, estrutura logística, custos por categoria, valores pagos e pendentes, custo por dia e sua parte. As moedas permanecem separadas e a comparação não cria notas ou recomendações.
+
 ## Publicar com GitHub Pages
 
-No repositório, abra **Settings → Pages**. Em **Source**, escolha **Deploy from a branch**; selecione **main** e **/(root)** e clique em **Save**.
+O workflow **Publicar Bora Viajar** prepara somente os arquivos públicos e publica automaticamente cada atualização integrada à branch `main`. Em **Settings → Pages**, mantenha **Source** configurado como **GitHub Actions**. Também é possível executar esse workflow manualmente pela aba **Actions**.
 
 Após a publicação, o endereço esperado é **https://caprdj.github.io/BoraViajar/**.
 
@@ -20,7 +22,7 @@ O app hospedado precisa de internet para abrir. O computador não precisa estar 
 
 ## Dados pessoais
 
-O repositório contém apenas a interface, iniciando com uma viagem vazia. Reservas, despesas, documentos e backups pessoais não devem ser enviados ao GitHub.
+O repositório contém apenas a interface, iniciando na lista vazia de planejamentos. Reservas, despesas, documentos e backups pessoais não devem ser enviados ao GitHub.
 
 O planejamento é armazenado no navegador de cada dispositivo. Não existe sincronização automática. Use **Mais → Meus dados → Exportar backup** para guardar uma cópia e **Restaurar backup** para transferir dados entre dispositivos ou da versão local para o site publicado.
 
@@ -50,4 +52,4 @@ Prints JPG/PNG/WebP de até 10 MB são reduzidos para armazenamento local. O bac
 
 ## Atualizações
 
-Os recursos estáticos na raiz são a fonte do site, acompanhados de testes e ferramentas de desenvolvimento. Alterações na branch `main` são publicadas pelo GitHub Pages após sua ativação. O identificador interno de armazenamento `meu-percurso-v1` foi mantido; o conteúdo agora usa o schema 2, com migração automática e cópia preventiva.
+Os recursos estáticos na raiz são a fonte do site, acompanhados de testes e ferramentas de desenvolvimento. Alterações na branch `main` são publicadas pelo workflow do GitHub Pages. O build recria `dist/` do zero para que recursos antigos não permaneçam no site, e os arquivos da versão 2.1 usam identificadores de cache atualizados. O identificador interno de armazenamento `meu-percurso-v1` foi mantido; o conteúdo agora usa o schema 2, com migração automática e cópia preventiva.

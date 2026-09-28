@@ -10,18 +10,20 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <meta name="description" content="Seu espaço pessoal para planejar viagens com calma.">
   <title>Bora Viajar · Planejador de viagens</title>
-  <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=20260926-v2">
-  <script src="core.js?v=20260926-v2" defer></script>
-  <script src="trips.js?v=20260926-v2" defer></script>
-  <script src="trips-ui.js?v=20260926-v2" defer></script>
-  <script src="stages.js?v=20260926-v2" defer></script>
-  <script src="app.js?v=20260926-v2" defer></script>
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="stylesheet" href="styles.css?v=2.1.1">
+  <script src="core.js?v=2.1.1" defer></script>
+  <script src="trips.js?v=2.1.1" defer></script>
+  <script src="comparison.js?v=2.1.1" defer></script>
+  <script src="trips-ui.js?v=2.1.1" defer></script>
+  <script src="comparison-ui.js?v=2.1.1" defer></script>
+  <script src="stages.js?v=2.1.1" defer></script>
+  <script src="app.js?v=2.1.1" defer></script>
 </head>
 <body>
   <a class="skip" href="#main">Pular para o conteúdo</a>
   <aside class="sidebar">
-    <a href="#viagens" class="brand"><span class="brand-icon">↗</span><span>Bora Viajar<small>VIAJAR COMEÇA AQUI</small></span></a>
+    <a href="#viagens" class="brand"><img class="brand-icon" src="icons/icon-192.png" alt=""><span>Bora Viajar<small>VERSÃO 2.1</small></span></a>
     <div class="nav-caption">SEU PLANEJAMENTO</div>
     <nav id="navigation" aria-label="Seções do planejamento"></nav>
     <div class="sidebar-bottom"><span class="local-dot"></span> Seu espaço pessoal<small>Dados salvos neste navegador</small><a href="#dados">Backup e importação ↗</a></div>
@@ -29,7 +31,7 @@
   <div class="workspace">
     <header class="topbar"><span>BORA VIAJAR <span class="slash">/</span> <strong id="breadcrumb">Visão geral</strong></span><label class="trip-switch-label">Viagem <select id="trip-switcher" aria-label="Trocar viagem"></select></label><button class="button subtle" data-action="settings">Configurar viagem <span aria-hidden="true">↗</span></button></header>
     <main id="main" tabindex="-1"></main>
-    <footer>Feito para planejar com calma. <span>Um destino de cada vez.</span></footer>
+    <footer>Feito para planejar com calma.</footer>
   </div>
   <dialog id="editor" aria-labelledby="dialog-title"><form id="editor-form"><div class="dialog-top"><div><span class="eyebrow">SEU PLANEJAMENTO</span><h2 id="dialog-title"></h2></div><button type="button" class="icon-button" data-action="close" aria-label="Fechar formulário">×</button></div><div id="fields" class="form-grid"></div><p id="form-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="button" data-action="close">Cancelar</button><button class="button primary" type="submit">Salvar alterações</button></div></form></dialog>
   <div id="toast" role="status" aria-live="polite"></div>

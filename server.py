@@ -7,7 +7,7 @@ import socket
 import webbrowser
 
 ROOT = Path(__file__).resolve().parent
-PUBLIC = {'index.html', 'styles.css', 'app.js', 'core.js', 'stages.js', 'trips.js', 'trips-ui.js', 'icon.svg', 'coast.svg', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'}
+PUBLIC = {'index.html', 'styles.css', 'app.js', 'core.js', 'stages.js', 'trips.js', 'trips-ui.js', 'comparison.js', 'comparison-ui.js', 'icon.svg', 'coast.svg', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'}
 
 
 class Handler(SimpleHTTPRequestHandler):
