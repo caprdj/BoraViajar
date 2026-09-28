@@ -8,6 +8,8 @@ Versão 2.0: organize múltiplas viagens, alterne pelo seletor no cabeçalho e g
 
 Versão 2.1: selecione duas ou mais viagens em “Minhas viagens” para comparar lado a lado período, estrutura logística, custos por categoria, valores pagos e pendentes, custo por dia e sua parte. As moedas permanecem separadas e a comparação não cria notas ou recomendações.
 
+Versão 2.2: crie cenários que combinam duas ou mais viagens, incluindo a alternativa de fazer ambas, desativar uma ou ajustar ordem e datas. A análise de viagens próximas separa conflitos calculados de sugestões de encadeamento, e o calendário global reúne viagens, etapas, hospedagens escolhidas, transportes e eventos com acesso ao cadastro original. Valores continuam separados por moeda.
+
 ## Publicar com GitHub Pages
 
 O workflow **Publicar Bora Viajar** prepara somente os arquivos públicos e publica automaticamente cada atualização integrada à branch `main`. Em **Settings → Pages**, mantenha **Source** configurado como **GitHub Actions**. Também é possível executar esse workflow manualmente pela aba **Actions**.
@@ -29,6 +31,14 @@ O planejamento é armazenado no navegador de cada dispositivo. Não existe sincr
 ## Funcionalidades
 
 Destinos, hospedagens, transportes, lugares, compromissos, roteiro diário, orçamento por moeda e cenários. Cadastros, pesquisa, importação/exportação CSV e backup JSON. Os cálculos avançados do notebook original não fazem parte desta interface.
+
+### Análises globais da versão 2.2
+
+**Cenários combinados** são planos de avaliação, não reservas: cada cenário referencia pelo menos duas viagens existentes e permite incluir ou desconsiderar cada uma, inverter a ordem e testar novas datas. Os totais vêm dos registros cadastrados e são exibidos por moeda, sem conversão. Dias disponíveis contam datas únicas do cenário; deslocamentos e compromissos vêm das viagens incluídas.
+
+**Viagens próximas** considera viagens com período completo. Sobreposições são marcadas como conflitos; intervalos de até três dias livres são oportunidades. A possível conexão entre destinos é identificada explicitamente como sugestão e não substitui nenhuma viagem nem altera dados.
+
+**Calendário global** ordena todos os registros datados de todas as viagens e permite abrir a seção de origem. Ele inclui o período geral, etapas, hospedagens vinculadas a etapas, transportes e eventos. Sobreposições entre viagens e choques envolvendo transportes ou eventos são sinalizados. No celular, cada ocorrência vira um cartão de largura única.
 
 ### Etapas, companhia e hospedagem
 
@@ -52,4 +62,4 @@ Prints JPG/PNG/WebP de até 10 MB são reduzidos para armazenamento local. O bac
 
 ## Atualizações
 
-Os recursos estáticos na raiz são a fonte do site, acompanhados de testes e ferramentas de desenvolvimento. Alterações na branch `main` são publicadas pelo workflow do GitHub Pages. O build recria `dist/` do zero para que recursos antigos não permaneçam no site, e os arquivos da versão 2.1 usam identificadores de cache atualizados. O identificador interno de armazenamento `meu-percurso-v1` foi mantido; o conteúdo agora usa o schema 2, com migração automática e cópia preventiva.
+Os recursos estáticos na raiz são a fonte do site, acompanhados de testes e ferramentas de desenvolvimento. Alterações na branch `main` são publicadas pelo workflow do GitHub Pages. O build recria `dist/` do zero para que recursos antigos não permaneçam no site, e os arquivos da versão 2.1 usam identificadores de cache atualizados. O identificador interno de armazenamento `meu-percurso-v1` e o schema 2 foram mantidos. Backups anteriores recebem automaticamente a coleção vazia `combined_scenarios`; registros e relações existentes não são modificados. Cenários combinados passam a fazer parte do backup JSON e são validados na restauração.
