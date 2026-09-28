@@ -26,7 +26,7 @@ class ServerTests(unittest.TestCase):
         cls.thread.join()
 
     def test_public_assets(self):
-        for asset in ['', 'styles.css', 'app.js', 'core.js', 'comparison.js', 'comparison-ui.js', 'coast.svg', 'icons/icon-192.png']:
+        for asset in ['', 'styles.css', 'app.js', 'core.js', 'comparison.js', 'comparison-ui.js', 'planning.js', 'planning-ui.js', 'coast.svg', 'icons/icon-192.png']:
             with urlopen(self.url + '/' + asset) as response:
                 self.assertEqual(response.status, 200)
 

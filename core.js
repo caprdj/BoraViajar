@@ -65,6 +65,30 @@
     }
     return [...groups].map(([label, items]) => ({label, count:items.length, totals:budget(items)}));
   }
+  function budgetCategoryTotals(rows) {
+    const CATEGORIES = ['HOSPEDAGEM', 'TRANSPORTE', 'ALIMENTAÇÃO', 'ATIVIDADES', 'EVENTOS', 'OUTROS'];
+    const groups = new Map();
+    for (const cat of CATEGORIES) groups.set(cat, []);
+    for (const row of rows) {
+      const value = number(row.valor);
+      if (String(row.status).toUpperCase() === 'CANCELADO' || value === null || value < 0) continue;
+      const cat = String(row.categoria || 'OUTROS').toUpperCase();
+      const key = CATEGORIES.includes(cat) ? cat : 'OUTROS';
+      groups.get(key).push(row);
+    }
+    return [...groups]
+      .filter(([, items]) => items.length > 0)
+      .map(([category, items]) => {
+        const types = [...new Set(items.map(r => (category === 'ALIMENTAÇÃO' ? r.tipo : category === 'TRANSPORTE' ? r.tipo_transporte : '').trim()).filter(Boolean))];
+        const detail = types.length ? types.map(t => t.toUpperCase()).join(', ') : '';
+        return {
+          label: category,
+          detail,
+          count: items.length,
+          totals: budget(items)
+        };
+      });
+  }
   const selected = hotel => hotel.escolhido === true || hotel.escolhido === 'true';
   function nights(stage) {
     if (!stage?.data_inicio || !stage?.data_fim) return null;
@@ -176,6 +200,6 @@
     }
     return result;
   }
-  root.TravelCore = { parseCSV, toCSV, number, budget, budgetGroups, selected, nights, travelers, hotelCost, personalShare, effectiveBudget, chooseHotel, validateRelations, hotelLink, hotelText };
+  root.TravelCore = { parseCSV, toCSV, number, budget, budgetGroups, budgetCategoryTotals, selected, nights, travelers, hotelCost, personalShare, effectiveBudget, chooseHotel, validateRelations, hotelLink, hotelText };
   if (typeof module !== 'undefined') module.exports = root.TravelCore;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -108,8 +108,8 @@
     for(const key of Object.keys(ids)) for(const r of scoped.records[key]) {
       const copy={...r,viagem_id:newId};
       for(const [idKey,map] of Object.entries(maps)) if(map.has(copy[idKey])) copy[idKey]=map.get(copy[idKey]);
-      // Generated costs are recomputed from the copied selected hotels.
-      if(key==='orcamento' && String(r.custo_id).startsWith('AUTO_HOTEL_')) continue;
+      // Generated costs are recomputed from the copied selected hotels, transports and meals.
+      if(key==='orcamento' && String(r.custo_id).startsWith('AUTO_')) continue;
       next.records[key].push(copy);
     }
     return validate(next);

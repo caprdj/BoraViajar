@@ -16,6 +16,7 @@ const icons = {
   proximas:'M4 18V6 M4 12h16 M16 8l4 4-4 4',
   calendario:'M4 5h16v16H4z M8 3v4 M16 3v4 M4 10h16',
   dados:'M4 4h16v16H4z M8 4v6h8V4 M8 20v-6h8v6',
+  viagens:'M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2 M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z M3 13h18',
   mais:'M5 12h1 M11 12h1 M17 12h1',
 };
 const icon = key => `<span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="${icons[key] || icons.estadias}"/></svg></span>`;
@@ -65,6 +66,7 @@ function moveNav(key,direction) {
   try { localStorage.setItem(NAV_STORE,JSON.stringify(order)); }
   catch { toast('Não foi possível salvar a ordem da navegação neste navegador.'); }
   nav();
+  if(page==='mais') render();
 }
 function toast(msg) { $('#toast').textContent = msg; $('#toast').classList.add('visible'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),4500); }
 function persist(next) {
@@ -77,7 +79,7 @@ function persist(next) {
   } catch(error) { toast('Não foi possível salvar. '+error.message);return false; }
 }
 function nav() {
-  const items = [['viagens','Minhas viagens'],...(state.trip?navOrder().map(k=>[k,modules[k].short]):[]),['combinados','Cenários combinados'],['proximas','Viagens próximas'],['calendario','Calendário global'],['dados','Meus dados'],['mais','Mais']];
+  const items = [['viagens','Minhas viagens'],...(state.trip?[['inicio','Visão geral'],...navOrder().map(k=>[k,modules[k].short])]:[]),['combinados','Cenários combinados'],['proximas','Viagens próximas'],['calendario','Calendário global'],['dados','Meus dados'],['mais','Mais']];
   $('#navigation').classList.toggle('ordering',orderingNav);
   $('#navigation').innerHTML=items.map(([k,label])=>`<div class="nav-row ${modules[k]?'module-nav':''}"><a href="#${k}" class="nav-item ${(['viagens','roteiro','hoteis','orcamento','mais'].includes(k) || (!state.trip && k==='dados'))?'mobile-nav':''} ${k==='mais'?'mobile-only':''} ${page===k?'active':''}" ${page===k?'aria-current="page"':''}>${icon(k)}<span>${label}</span>${modules[k]?`<span class="count">${rows(k).length || '—'}</span>`:''}</a>${modules[k]&&orderingNav?`<span class="nav-order-controls"><button type="button" data-action="nav-up" data-key="${k}" aria-label="Mover ${esc(label)} para cima">↑</button><button type="button" data-action="nav-down" data-key="${k}" aria-label="Mover ${esc(label)} para baixo">↓</button></span>`:''}</div>`).join('');
   const toggle=$('#nav-order-toggle');if(toggle){toggle.textContent=orderingNav?'Concluir':'Reordenar';toggle.setAttribute('aria-pressed',String(orderingNav));}
@@ -119,11 +121,11 @@ function recordCard(key,r) {
   if(r.duracao_estimada_min) meta.push(`${r.duracao_estimada_min} min`);
   const price=key==='orcamento'||key==='alimentacao'?r.valor:key==='hoteis'?r.preco_diaria:key==='cenarios'?r.custo_total:r.preco;
   const validLink = /^https?:\/\//i.test(r.link||'');
-  return `<article class="record"><span class="tag ${['EM PESQUISA','ESTIMADO','EM ANÁLISE'].includes(r.status)?'warm':''}">${esc(r.status || r.categoria || (key==='hoteis'?'OPÇÃO EM PESQUISA':modules[key].short.toUpperCase()))}</span><h2>${esc(titleOf(r))}</h2><div class="record-meta">${meta.map(s=>`<span>${esc(s)}</span>`).join('')}</div>${numeric(price)!==null?`<div class="record-price">${money(price,r.moeda||'BRL')} ${key==='hoteis'?'<small class="muted">/ noite</small>':''}</div>`:''}${r.observacoes?`<p class="record-note">${esc(r.observacoes)}</p>`:''}<div class="record-actions">${validLink?`<a class="button" href="${esc(r.link)}" target="_blank" rel="noopener noreferrer">Abrir link ↗</a>`:''}<button class="button" data-action="edit" data-id="${esc(r[modules[key].id])}">Editar</button><button class="button danger" data-action="delete" data-id="${esc(r[modules[key].id])}">Excluir</button></div></article>`;
+  return `<article class="record"><span class="tag ${['EM PESQUISA','ESTIMADO','EM ANÁLISE'].includes(r.status||r.status_custo)?'warm':''}">${esc(r.status || r.status_custo || r.categoria || (key==='hoteis'?'OPÇÃO EM PESQUISA':modules[key].short.toUpperCase()))}</span><h2>${esc(titleOf(r))}</h2><div class="record-meta">${meta.map(s=>`<span>${esc(s)}</span>`).join('')}</div>${numeric(price)!==null?`<div class="record-price">${money(price,r.moeda||'BRL')} ${key==='hoteis'?'<small class="muted">/ noite</small>':''}</div>`:''}${r.observacoes?`<p class="record-note">${esc(r.observacoes)}</p>`:''}<div class="record-actions">${validLink?`<a class="button" href="${esc(r.link)}" target="_blank" rel="noopener noreferrer">Abrir link ↗</a>`:''}<button class="button" data-action="edit" data-id="${esc(r[modules[key].id])}">Editar</button><button class="button danger" data-action="delete" data-id="${esc(r[modules[key].id])}">Excluir</button></div></article>`;
 }
 function recordsHTML() {
   const mod=modules[page];
-  let items=rows(page).filter(r=>(!stageFilter || (stageFilter==='unassigned'?!r.estadia_id:r.estadia_id===stageFilter)) && (!search || Object.entries(r).filter(([k])=>k!=='print_data').map(([,v])=>v).join(' ').toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'))) && (!filter || r.status===filter));
+  let items=rows(page).filter(r=>(!stageFilter || (stageFilter==='unassigned'?!r.estadia_id:r.estadia_id===stageFilter)) && (!search || Object.entries(r).filter(([k])=>k!=='print_data').map(([,v])=>v).join(' ').toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'))) && (!filter || r.status===filter || r.status_custo===filter));
   if(page==='estadias') items=items.sort((a,b)=>(numeric(a.ordem)||0)-(numeric(b.ordem)||0));
   if(page==='roteiro') items=items.toSorted((a,b)=>((a.data||'9999')+(a.hora_inicio||'99')).localeCompare((b.data||'9999')+(b.hora_inicio||'99')));
   if(!items.length) return `<div class="empty">${icon(page)}<h2>${search||filter||stageFilter?'Nenhum resultado por aqui':'Espaço para os seus planos'}</h2><p>${search||filter||stageFilter?'Experimente outro termo ou remova os filtros.':page==='cenarios'?'Use cenários para registrar uma alternativa desta viagem, por exemplo “adiar uma semana”. Para combinar duas ou mais viagens, abra Cenários combinados.':`Adicione ${mod.singular==='atividade'?'a primeira atividade':`um registro de ${mod.singular}`} ou importe os dados que você já tem em CSV.`}</p>${search||filter||stageFilter?'<button class="button" data-action="clear-search">Limpar filtros</button>':`<button class="button primary" data-action="add">+ Adicionar ${mod.singular}</button>`}</div>`;
@@ -135,22 +137,41 @@ function collection() {
   let html=heading(mod.title,mod.description,`<button class="button primary" data-action="add">+ Adicionar</button>`);
   html+=stageToolbar();
   if(page==='orcamento') {
-    const groups=TravelCore.budgetGroups(scopedExpenses());
-    html+=`<div class="stats budget-stats"><div class="stat"><div class="stat-top">Total registrado</div><strong>${totalText(totals)}</strong><small>Inclui estimados, confirmados e pagos</small></div><div class="stat"><div class="stat-top">Já pago</div><strong>${totalText(totals,'paid')}</strong><small>Somente despesas com situação PAGO</small></div></div><section class="panel"><div class="section-top"><h2>Totais por categoria</h2></div><div class="stage-facts">${groups.map(g=>`<span>${esc(g.label)}<strong>${totalText(g.totals)}</strong><small>${g.count} despesa(s)</small></span>`).join('')||'<p class="muted">Os totais por categoria aparecerão aqui.</p>'}</div></section><p class="notice">O orçamento reúne as despesas manuais, a hospedagem escolhida e os valores registrados em Alimentação e Transportes. As outras cotações de hospedagem ficam fora do total. Moedas diferentes são somadas separadamente, sem conversão.</p>`;
+    const groups=TravelCore.budgetCategoryTotals(scopedExpenses());
+    html+=`<div class="stats budget-stats"><div class="stat"><div class="stat-top">Total registrado</div><strong>${totalText(totals)}</strong><small>Inclui estimados, confirmados e pagos</small></div><div class="stat"><div class="stat-top">Já pago</div><strong>${totalText(totals,'paid')}</strong><small>Somente despesas com situação PAGO</small></div></div><section class="panel"><div class="section-top"><h2>Totais por categoria</h2></div><div class="stage-facts">${groups.map(g=>`<span>${esc(g.label)}<strong>${totalText(g.totals)}</strong><small>${g.count} despesa(s)${g.detail?' · '+esc(g.detail):''}</small></span>`).join('')||'<p class="muted">Os totais por categoria aparecerão aqui.</p>'}</div></section><p class="notice">O orçamento reúne as despesas manuais, a hospedagem escolhida e os valores registrados em Alimentação e Transportes. As outras cotações de hospedagem ficam fora do total. Moedas diferentes são somadas separadamente, sem conversão.</p>`;
   }
   if(page==='hoteis') html+='<p class="notice">Compare hotéis por etapa. Toque em Escolher para incluir o custo no orçamento. Isso não efetua uma reserva.</p>';
   if(page==='cenarios') html+='<p class="notice">Use esta seção para alternativas da viagem aberta. Exemplo: “adiar uma semana”. Para avaliar realizar ambas, apenas uma ou mudar a ordem de várias viagens, use <a href="#combinados">Cenários combinados</a>.</p>';
-  const statuses=[...new Set(rows(page).map(r=>r.status).filter(Boolean))];
+  const statuses=[...new Set(rows(page).map(r=>r.status||r.status_custo).filter(Boolean))];
   return html+`<div class="toolbar"><input class="search" id="search" type="search" placeholder="Buscar em ${mod.short.toLowerCase()}..." aria-label="Buscar registros" value="${esc(search)}">${statuses.length?`<select id="filter" aria-label="Filtrar por situação"><option value="">Todas as situações</option>${statuses.map(s=>`<option ${filter===s?'selected':''}>${esc(s)}</option>`).join('')}</select>`:''}<button class="button" data-action="import-csv">Importar CSV</button><button class="button" data-action="export-csv" ${rows(page).length?'':'disabled'}>Exportar CSV</button></div><div id="records" class="cards">${recordsHTML()}</div>`;
 }
 function dataPage() { return heading('Seus dados, com você','Guarde uma cópia do planejamento e continue de onde parou.')+`<div class="notice">Os dados são salvos apenas neste navegador e neste endereço. Não há sincronização automática entre computador e celular. Mantenha um backup antes de limpar o navegador ou mudar de endereço.</div><div class="data-grid"><section class="panel"><h2>Backup completo</h2><p>Salve todas as viagens, suas configurações e registros em um arquivo JSON.</p><button class="button primary" data-action="backup">Exportar backup</button><button class="button" data-action="restore">Restaurar backup</button></section><section class="panel"><h2>Do notebook para o app</h2><p>Em cada seção, use “Importar CSV” e selecione o arquivo correspondente da pasta <strong>01_dados</strong> do seu Google Drive. As colunas extras são preservadas.</p><p>O notebook enviado contém código e saídas de execução; os bancos CSV não vieram junto. Por isso, nenhuma hospedagem, reserva ou despesa foi presumida.</p><button class="button" data-action="import-config">Importar config_viagem.json</button></section><section class="panel"><h2>Acesso pelo celular</h2><p>Na versão hospedada, abra o endereço do Bora Viajar no navegador do celular. No iPhone, use Compartilhar → Adicionar à Tela de Início. No Android, procure Adicionar à tela inicial ou Instalar app no menu do navegador.</p><p>O endereço hospedado funciona sem o computador ligado e precisa de internet. Para transferir seu planejamento da versão local, exporte o backup e restaure-o neste endereço.</p></section><section class="panel"><h2>Sua base original</h2><p>Esta interface facilita o planejamento diário. O notebook continua responsável pelos cálculos avançados de ranking, geocodificação e mobilidade.</p><p>Os dados do navegador não alteram os arquivos do notebook. Para intercâmbio, use os arquivos CSV; para uma cópia fiel de todo o app, use o backup JSON.</p></section></div>`; }
+function maisPage() {
+  const trip = state.trip;
+  const reorderBtn = trip ? `<button class="button ${orderingNav?'primary':''}" type="button" data-action="toggle-nav-order" aria-pressed="${orderingNav}">${orderingNav?'Concluir':'Reordenar seções'}</button>` : '';
+  let html = heading('Tudo para a viagem', 'Encontre cada detalhe do seu planejamento.', reorderBtn);
+  if (trip) {
+    const keys = navOrder();
+    html += `<section class="panel"><div class="section-top"><div><h2>Seções da viagem</h2><p class="muted">${orderingNav ? 'Toque nas setas ↑ e ↓ para reorganizar a ordem das seções no menu.' : 'Personalize a ordem das seções que você mais usa.'}</p></div>${reorderBtn}</div><div class="reorder-list ${orderingNav ? 'ordering-active' : ''}">${keys.map(k => `<div class="reorder-item"><a href="${orderingNav ? 'javascript:void(0)' : '#' + k}" class="reorder-link">${icon(k)}<div class="reorder-info"><strong>${esc(modules[k].title)}</strong><small>${esc(modules[k].description)}</small></div><span class="count">${rows(k).length || '—'}</span></a><div class="reorder-controls"><button type="button" class="order-btn" data-action="nav-up" data-key="${k}" aria-label="Mover ${esc(modules[k].short)} para cima">↑</button><button type="button" class="order-btn" data-action="nav-down" data-key="${k}" aria-label="Mover ${esc(modules[k].short)} para baixo">↓</button></div></div>`).join('')}</div></section>`;
+  }
+  const globalTools = [
+    ...(trip ? [['inicio', 'Visão geral']] : []),
+    ['combinados', 'Cenários combinados'],
+    ['proximas', 'Viagens próximas'],
+    ['calendario', 'Calendário global'],
+    ['viagens', 'Minhas viagens'],
+    ['dados', 'Meus dados']
+  ];
+  html += `<section class="panel"><div class="section-top"><h2>Visão geral e ferramentas</h2></div><div class="more-grid">${globalTools.map(([k, label]) => `<a href="#${k}">${icon(k)}<span>${esc(label)}</span></a>`).join('')}</div></section>`;
+  return html;
+}
 function render() {
   const requested=location.hash.slice(1)||'viagens';
   page=Object.hasOwn(modules,requested)||['viagens','comparar','combinados','proximas','calendario','inicio','dados','mais'].includes(requested)?requested:'viagens';
   if(!state.trip && !['dados','comparar','combinados','proximas','calendario'].includes(page))page='viagens';
   renderTripSwitcher();
   nav(); $('#breadcrumb').textContent=modules[page]?.title || ({viagens:'Minhas viagens',comparar:'Comparar viagens',combinados:'Cenários combinados',proximas:'Viagens próximas',calendario:'Calendário global',inicio:'Visão geral',dados:'Meus dados',mais:'Mais opções'}[page]);
-  $('#main').innerHTML=(storageBlocked?'<p class="notice" role="alert">O armazenamento do navegador não está disponível ou o backup salvo é incompatível. Os dados existentes não serão sobrescritos. Exporte o que conseguir recuperar e verifique as permissões do navegador.</p>':'')+(page==='viagens'?tripsPage():page==='comparar'?comparisonPage():page==='combinados'?combinedScenariosPage():page==='proximas'?nearbyTripsPage():page==='calendario'?globalCalendarPage():page==='inicio'?dashboard():page==='dados'?dataPage():page==='mais'?heading('Tudo para a viagem','Encontre cada detalhe do seu planejamento.')+`<div class="more-grid">${[...new Map([...Object.entries(modules).map(([k,v])=>[k,v.title]),['combinados','Cenários combinados'],['proximas','Viagens próximas'],['calendario','Calendário global'],['viagens','Minhas viagens'],['dados','Meus dados']])].map(([k,label])=>`<a href="#${k}">${icon(k)}${label}</a>`).join('')}</div>`:collection());
+  $('#main').innerHTML=(storageBlocked?'<p class="notice" role="alert">O armazenamento do navegador não está disponível ou o backup salvo é incompatível. Os dados existentes não serão sobrescritos. Exporte o que conseguir recuperar e verifique as permissões do navegador.</p>':'')+(page==='viagens'?tripsPage():page==='comparar'?comparisonPage():page==='combinados'?combinedScenariosPage():page==='proximas'?nearbyTripsPage():page==='calendario'?globalCalendarPage():page==='inicio'?dashboard():page==='dados'?dataPage():page==='mais'?maisPage():collection());
 }
 function fieldHTML(f, values) {
   const value=values[f.key] ?? '', required=f.required?'required':'', wide=f.type==='textarea';
@@ -184,7 +205,8 @@ $('#editor-form').addEventListener('submit', e=>{
   if(requiredFields.some(f=>f.required && !values[f.key])) { $('#form-error').textContent='Preencha os campos obrigatórios com um valor válido.'; return; }
   const begin=values.data_inicio||values.data_saida, end=values.data_fim||values.data_chegada;
   if(begin && end && end<begin) { $('#form-error').textContent='A data final deve ser igual ou posterior à data inicial.'; return; }
-  if(values.hora_inicio && values.hora_fim && (!end || end===begin) && values.hora_fim<values.hora_inicio) { $('#form-error').textContent='O horário final deve ser posterior ao inicial.'; return; }
+  const hStart=values.hora_inicio||values.hora_saida, hEnd=values.hora_fim||values.hora_chegada;
+  if(hStart && hEnd && (!end || end===begin) && hEnd<hStart) { $('#form-error').textContent='O horário final deve ser posterior ao inicial.'; return; }
   if(editing.key==='hoteis') {
     const scale=numeric(values.escala_notas_plataforma);
     if(['nota','nota_conforto_plataforma'].some(k=>numeric(values[k])!==null && (!scale || numeric(values[k])>scale))) { $('#form-error').textContent='Informe a escala e use notas entre zero e o máximo da escala.'; return; }
@@ -230,7 +252,10 @@ document.addEventListener('click',e=>{
   if(action==='clear-search') { search='';filter='';stageFilter='';render(); }
   if(action==='export-csv')download(`${page}.csv`,toCSV(rows(page)),'text/csv;charset=utf-8');
   if(['import-csv','restore','import-config'].includes(action)) { importMode=action==='import-csv'?page:action;$('#file-input').accept=action==='import-csv'?'.csv':'.json';$('#file-input').value='';$('#file-input').click(); }
-  if(action==='delete') { const key=page,id=button.dataset.id;const row=rows(key).find(r=>r[modules[key].id]===id);if(key==='hoteis' && TravelCore.selected(row||{}) && row.status_custo==='PAGO'){toast('Revise a situação do custo pago antes de excluir a hospedagem.');return;}if(key==='estadias' && Object.entries(state.records).some(([k,list])=>k!=='estadias' && list.some(r=>r.estadia_id===id))) { toast('Esta etapa tem registros vinculados. Reatribua-os antes de excluir.');return; } if(row && confirm(`Excluir “${titleOf(row)}”? ${key==='hoteis' && TravelCore.selected(row)?'O custo automático também será retirado do orçamento. ':''}Esta ação não pode ser desfeita.`)){const next=structuredClone(state);next.records[key]=state.records[key].filter(r=>r[modules[key].id]!==id);if(persist(next)){render();toast('Registro excluído.');}} }
+  if(action==='delete') { const key=page,id=button.dataset.id;const row=rows(key).find(r=>r[modules[key].id]===id);if(key==='hoteis' && TravelCore.selected(row||{}) && row.status_custo==='PAGO'){toast('Revise a situação do custo pago antes de excluir a hospedagem.');return;}if(key==='estadias' && Object.entries(state.records).some(([k,list])=>k!=='estadias' && list.some(r=>r.estadia_id===id))) { toast('Esta etapa tem registros vinculados. Reatribua-os antes de excluir.');return; }
+  if(key==='hoteis' && (state.records.orcamento.some(r=>r.hotel_id===id) || state.records.roteiro.some(r=>r.hotel_id===id))) { toast('Esta hospedagem tem registros vinculados (despesas ou roteiro). Desvincule-os antes de excluir.');return; }
+  if(key==='deslocamentos' && state.records.orcamento.some(r=>r.deslocamento_id===id)) { toast('Este transporte tem despesas vinculadas no orçamento. Desvincule-as antes de excluir.');return; }
+  if(key==='alimentacao' && state.records.orcamento.some(r=>r.alimentacao_id===id)) { toast('Este gasto tem despesas vinculadas no orçamento. Desvincule-as antes de excluir.');return; } if(row && confirm(`Excluir “${titleOf(row)}”? ${key==='hoteis' && TravelCore.selected(row)?'O custo automático também será retirado do orçamento. ':''}Esta ação não pode ser desfeita.`)){const next=structuredClone(state);next.records[key]=state.records[key].filter(r=>r[modules[key].id]!==id);if(persist(next)){render();toast('Registro excluído.');}} }
 });
 document.addEventListener('input',e=>{if(e.target.id==='search'){search=e.target.value;$('#records').innerHTML=recordsHTML();}});
 document.addEventListener('change',e=>{if(e.target.id==='filter'){filter=e.target.value;$('#records').innerHTML=recordsHTML();}});
@@ -262,7 +287,11 @@ $('#file-input').addEventListener('change',async e=>{
       const existing=new Set(rows(key).map(r=>r[mod.id]));
       if(ids.some(id=>existing.has(id)) && !confirm('Existem registros com os mesmos identificadores. Atualizar esses registros com os dados do CSV?'))return;
       for(const r of incoming) {
-        if(key==='orcamento' && String(r.custo_id).startsWith('AUTO_HOTEL_')) {r.custo_id=r.custo_id.replace('AUTO_HOTEL_','IMPORTADO_HOTEL_');r.automatico=false;}
+        if(key==='orcamento') {
+          if(String(r.custo_id).startsWith('AUTO_HOTEL_')) {r.custo_id=r.custo_id.replace('AUTO_HOTEL_','IMPORTADO_HOTEL_');r.automatico=false;}
+          else if(String(r.custo_id).startsWith('AUTO_TRANSPORTE_')) {r.custo_id=r.custo_id.replace('AUTO_TRANSPORTE_','IMPORTADO_TRANSPORTE_');r.automatico=false;}
+          else if(String(r.custo_id).startsWith('AUTO_ALIMENTACAO_')) {r.custo_id=r.custo_id.replace('AUTO_ALIMENTACAO_','IMPORTADO_ALIMENTACAO_');r.automatico=false;}
+        }
         if(!r[mod.id])r[mod.id]=nextID(key,[...next.records[key],...incoming]);
         const i=next.records[key].findIndex(old=>old[mod.id]===r[mod.id]);
         if(i>=0)next.records[key][i]={...next.records[key][i],...r};else next.records[key].push(r);

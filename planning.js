@@ -42,7 +42,7 @@
       push(trip,'Viagem',trip.nome,trip.data_inicio,'',trip.data_fim,'','viagens',trip.id);
       const state=root.TravelTrips.view(library,trip.id);
       for(const r of state.records.estadias)push(trip,'Etapa',r.nome,r.data_inicio,'',r.data_fim,'','estadias',r.estadia_id);
-      for(const r of state.records.hoteis){const stage=state.records.estadias.find(s=>s.estadia_id===r.estadia_id);push(trip,'Hospedagem',r.nome,stage?.data_inicio,'',stage?.data_fim,'','hoteis',r.hotel_id);}
+      for(const r of state.records.hoteis){if(!root.TravelCore.selected(r))continue;const stage=state.records.estadias.find(s=>s.estadia_id===r.estadia_id);push(trip,'Hospedagem',r.nome,stage?.data_inicio,'',stage?.data_fim,'','hoteis',r.hotel_id);}
       for(const r of state.records.deslocamentos)push(trip,'Transporte',`${r.origem||'?'} → ${r.destino||'?'}`,r.data_saida,r.hora_saida,r.data_chegada,r.hora_chegada,'deslocamentos',r.deslocamento_id);
       for(const r of state.records.compromissos)push(trip,'Evento',r.nome,r.data_inicio,r.hora_inicio,r.data_fim,r.hora_fim,'compromissos',r.compromisso_id);
     }
