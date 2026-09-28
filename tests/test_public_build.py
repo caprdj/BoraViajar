@@ -12,7 +12,7 @@ class PublicBuildTests(unittest.TestCase):
         self.assertNotIn('fortaleza_2026', script)
         self.assertNotIn('Jericoacoara 2026', script)
         self.assertNotIn('2026-10-31', script)
-        self.assertIn("version:2,trips:[],active_trip_id:null", script)
+        self.assertIn("version:2,trips:[],active_trip_id:null,combined_scenarios:[]", script)
         self.assertNotIn('Minha próxima viagem', script)
         self.assertIn("const STORE = 'meu-percurso-v1'", script)
 
@@ -34,7 +34,9 @@ class PublicBuildTests(unittest.TestCase):
         )
         self.assertIn('<footer>Feito para planejar com calma.</footer>', html)
         self.assertIn('src="icons/icon-192.png"', html)
-        self.assertIn('VERSÃO 2.1', html)
+        self.assertIn('VERSÃO 2.2', html)
+        self.assertTrue((ROOT / 'dist/planning.js').is_file())
+        self.assertTrue((ROOT / 'dist/planning-ui.js').is_file())
         for obsolete_text in ('Uma viagem,', 'Minha próxima viagem', 'Um destino de cada vez.'):
             self.assertNotIn(obsolete_text, html + scripts)
 

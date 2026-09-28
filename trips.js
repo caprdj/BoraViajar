@@ -27,6 +27,18 @@
       tripIds.add(t.id);
     }
     if(data.trips.length ? !tripIds.has(data.active_trip_id) : data.active_trip_id!==null) throw new Error('Viagem ativa inválida.');
+    if(data.combined_scenarios===undefined) data.combined_scenarios=[];
+    if(!Array.isArray(data.combined_scenarios)) throw new Error('Cenários combinados inválidos.');
+    const scenarioIds=new Set();
+    for(const scenario of data.combined_scenarios) {
+      if(!scenario || typeof scenario.id!=='string' || !scenario.id || scenarioIds.has(scenario.id) || typeof scenario.nome!=='string' || !scenario.nome.trim() || !Array.isArray(scenario.items) || scenario.items.length<2) throw new Error('Cenário combinado inválido.');
+      const itemTrips=new Set();
+      for(const item of scenario.items) {
+        if(!item || !tripIds.has(item.trip_id) || itemTrips.has(item.trip_id) || !validDate(item.data_inicio) || !validDate(item.data_fim) || (item.data_inicio && item.data_fim && item.data_fim<item.data_inicio)) throw new Error('Alternativa inválida em cenário combinado.');
+        itemTrips.add(item.trip_id);
+      }
+      scenarioIds.add(scenario.id);
+    }
     for(const [key,idKey] of Object.entries(ids)) {
       const seen=new Set();
       if(!Array.isArray(data.records[key])) throw new Error(`Seção inválida: ${key}.`);
@@ -62,6 +74,7 @@
         }
       }
     }
+    if(data?.version===2 && data.combined_scenarios===undefined) data.combined_scenarios=[];
     return validate(data);
   }
   function merge(data, scoped) {
@@ -79,6 +92,7 @@
     const next=clone(data);next.trips=next.trips.filter(t=>t.id!==id);
     for(const key of Object.keys(ids)) next.records[key]=next.records[key].filter(r=>r.viagem_id!==id);
     if(next.active_trip_id===id) next.active_trip_id=next.trips[0]?.id || null;
+    next.combined_scenarios=next.combined_scenarios.map(s=>({...s,items:s.items.filter(item=>item.trip_id!==id)})).filter(s=>s.items.length>=2);
     return validate(next);
   }
   function duplicate(data,id) {
