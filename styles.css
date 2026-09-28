@@ -28,3 +28,13 @@
 /* Mantém todas as opções acessíveis quando a navegação é maior que a tela. */
 .sidebar{overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable}
 @media(max-width:700px){.sidebar{overflow-y:visible;overscroll-behavior-y:auto;scrollbar-gutter:auto}}
+
+/* Controles acessíveis para personalizar a ordem das seções da viagem. */
+.nav-caption{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.nav-caption button{border:0;background:transparent;color:var(--green);font-size:9px;padding:5px 0;letter-spacing:0}
+.nav-row{position:relative}
+.ordering .module-nav .nav-item{padding-right:55px}
+.nav-order-controls{position:absolute;right:4px;top:8px;display:flex;gap:2px}
+.nav-order-controls button{width:24px;height:30px;border:1px solid var(--line);background:#fff;color:var(--green);border-radius:6px;padding:0}
+.nav-order-controls button:hover{background:var(--light)}
+@media(max-width:700px){.nav-row{display:contents}.nav-order-controls{display:none}}
