@@ -49,7 +49,11 @@
     entries.sort((a,b)=>a.start-b.start||a.end-b.end);
     for(const entry of entries)entry.conflicts=[];
     const scheduled=new Set(['Transporte','Evento']);
-    const canConflict=(a,b)=>(a.type==='Viagem'&&b.type==='Viagem'&&a.trip_id!==b.trip_id)||(scheduled.has(a.type)&&scheduled.has(b.type));
+    const canConflict=(a,b)=>{
+      const aIsTrip=a.type==='Viagem',bIsTrip=b.type==='Viagem';
+      if(aIsTrip||bIsTrip)return aIsTrip&&bIsTrip&&a.trip_id!==b.trip_id;
+      return scheduled.has(a.type)&&scheduled.has(b.type);
+    };
     for(let i=0;i<entries.length;i++)for(let j=i+1;j<entries.length&&entries[j].start<=entries[i].end;j++)if(canConflict(entries[i],entries[j])){entries[i].conflicts.push(entries[j].id);entries[j].conflicts.push(entries[i].id);}
     return entries;
   }
