@@ -61,7 +61,10 @@ function navOrder() {
 }
 function moveNav(key,direction) {
   const order=navOrder(),from=order.indexOf(key),to=from+direction;if(from<0||to<0||to>=order.length)return;
-  [order[from],order[to]]=[order[to],order[from]];localStorage.setItem(NAV_STORE,JSON.stringify(order));nav();
+  [order[from],order[to]]=[order[to],order[from]];
+  try { localStorage.setItem(NAV_STORE,JSON.stringify(order)); }
+  catch { toast('Não foi possível salvar a ordem da navegação neste navegador.'); }
+  nav();
 }
 function toast(msg) { $('#toast').textContent = msg; $('#toast').classList.add('visible'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),4500); }
 function persist(next) {

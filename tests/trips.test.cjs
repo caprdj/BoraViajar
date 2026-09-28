@@ -51,4 +51,23 @@ test('cross-trip foreign keys are rejected, backup roundtrip retains all trips',
   assert.deepEqual(t.migrate(JSON.parse(JSON.stringify(data))),data);
   data.records.orcamento.push({custo_id:'B1',hotel_id:'H1',viagem_id:'B'});assert.throws(()=>t.validate(data));
 });
-test('migration adds the food collection to existing version 2 backups',()=>{const data=t.migrate(legacy());delete data.records.alimentacao;const migrated=t.migrate(data);assert.deepEqual(migrated.records.alimentacao,[]);});
+test('migration adds a missing food collection to version 1 backups without changing the source',()=>{
+  const data=legacy(),snapshot=structuredClone(data);delete data.records.alimentacao;delete snapshot.records.alimentacao;
+  const migrated=t.migrate(data);
+  assert.deepEqual(data,snapshot);assert.deepEqual(migrated.records.alimentacao,[]);
+  assert.deepEqual(migrated.trips,[snapshot.trip]);
+  for(const [key,rows] of Object.entries(snapshot.records))assert.deepEqual(migrated.records[key].map(({viagem_id,...row})=>row),rows);
+});
+test('migration adds a missing food collection to version 2 backups',()=>{
+  const data=t.add(t.migrate(legacy()),{id:'B',nome:'Viagem B'}),trips=structuredClone(data.trips),records=structuredClone(data.records);
+  delete data.records.alimentacao;delete records.alimentacao;
+  const migrated=t.migrate(data);
+  assert.deepEqual(migrated.records.alimentacao,[]);assert.deepEqual(migrated.trips,trips);
+  for(const key of Object.keys(records))assert.deepEqual(migrated.records[key],records[key]);
+});
+test('migration rejects an existing invalid food collection instead of replacing it',()=>{
+  for(const version of [1,2]) {
+    const data=version===1?legacy():t.migrate(legacy());data.records.alimentacao=null;
+    assert.throws(()=>t.migrate(data),/Seção inválida: alimentacao/);assert.equal(data.records.alimentacao,null);
+  }
+});
