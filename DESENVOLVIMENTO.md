@@ -24,7 +24,7 @@ Uma tarefa em outro ambiente deve partir do clone atualizado, criar sua própria
 Os testes de dados e do servidor não exigem dependências extras:
 
 ```sh
-node --test tests/core.test.cjs tests/stages.test.cjs tests/trips.test.cjs
+node --test tests/core.test.cjs tests/stages.test.cjs tests/trips.test.cjs tests/comparison.test.cjs
 python build_public.py
 python -m unittest discover -s tests -p "test_*.py"
 ```
@@ -53,7 +53,7 @@ Em Windows com Edge instalado, o canal padrão `msedge` também funciona. Em Lin
 
 ## Arquivos que devem ser versionados
 
-- Fonte: `app.js`, `core.js`, `stages.js`, `trips.js`, `trips-ui.js`, `index.html` e `styles.css`.
+- Fonte: `app.js`, `core.js`, `stages.js`, `trips.js`, `trips-ui.js`, `comparison.js`, `comparison-ui.js`, `index.html` e `styles.css`.
 - Recursos: manifesto, ícones, `coast.svg` e `.nojekyll`.
 - Ferramentas: `server.py`, `build_public.py` e `Iniciar app.cmd`.
 - Documentação e testes em `tests/`; `tests/hotel-print.png` é uma imagem sintética, sem reserva real.
@@ -62,8 +62,8 @@ Não envie notebooks, configurações de viagem, reservas, CSVs, backups, docume
 
 ## GitHub Pages
 
-A configuração documentada do projeto publica a raiz de `main`. Mantemos os recursos do aplicativo nessa raiz para preservar esse fluxo. `build_public.py` também gera uma cópia somente dos recursos públicos em `dist/`, útil para distribuição; `dist/` é gerado e não é versionado. Não substitua o clone inteiro por `dist/`: isso perderia testes e ferramentas.
+O GitHub Pages usa o workflow `.github/workflows/pages.yml`. A cada integração em `main`, ele executa `build_public.py`, envia somente `dist/` como artefato e publica essa cópia. Em **Settings → Pages**, a origem deve estar configurada como **GitHub Actions**. `dist/` é gerado e não é versionado; não substitua o clone inteiro por ele, pois isso perderia testes e ferramentas.
 
-Enviar uma branch de desenvolvimento não integra suas mudanças a `main`. Integrar a `main` pode atualizar o site conforme a configuração do Pages. Confirme a autorização para envio e publicação antes dessas ações.
+Enviar uma branch de desenvolvimento não integra suas mudanças a `main`. Depois da integração, acompanhe o workflow **Publicar Bora Viajar** na aba Actions para confirmar que a versão atual chegou ao site.
 
 Os dados de viagens continuam no armazenamento local de cada navegador. Clonar o código em outro computador não transfere esses dados; use o backup JSON do aplicativo quando necessário.

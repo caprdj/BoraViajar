@@ -4,7 +4,7 @@
   "short_name": "Bora Viajar",
   "description": "Seu espaço pessoal para planejar viagens com calma.",
   "lang": "pt-BR",
-  "start_url": "./#inicio",
+  "start_url": "./#viagens",
   "scope": "./",
   "display": "standalone",
   "background_color": "#fafbf7",
