@@ -52,6 +52,19 @@
     }
     return totals;
   }
+  function budgetGroups(rows) {
+    const groups = new Map();
+    for (const row of rows) {
+      const value = number(row.valor);
+      if (String(row.status).toUpperCase() === 'CANCELADO' || value === null || value < 0) continue;
+      const category = String(row.categoria || 'OUTROS').toUpperCase();
+      const subtype = category === 'ALIMENTAÇÃO' ? row.tipo : category === 'TRANSPORTE' ? row.tipo_transporte : '';
+      const label = [category, subtype && String(subtype).toUpperCase()].filter(Boolean).join(' · ');
+      if (!groups.has(label)) groups.set(label, []);
+      groups.get(label).push(row);
+    }
+    return [...groups].map(([label, items]) => ({label, count:items.length, totals:budget(items)}));
+  }
   const selected = hotel => hotel.escolhido === true || hotel.escolhido === 'true';
   function nights(stage) {
     if (!stage?.data_inicio || !stage?.data_fim) return null;
@@ -91,12 +104,12 @@
     const transport = (state.records.deslocamentos || []).map(r => {
       const value=number(r.preco);
       if(value===null || value<0 || manual.some(e=>e.deslocamento_id===r.deslocamento_id && String(e.status).toUpperCase()!=='CANCELADO')) return null;
-      return {custo_id:'AUTO_TRANSPORTE_'+r.deslocamento_id,deslocamento_id:r.deslocamento_id,estadia_id:r.estadia_id||'',viagem_id:state.trip.id,categoria:'TRANSPORTE',descricao:[r.origem,r.destino].filter(Boolean).join(' → ')||r.empresa||'Transporte',valor:value,moeda:r.moeda||'BRL',status:r.status_custo||'ESTIMADO',data:r.data_saida||'',automatico:true};
+      return {custo_id:'AUTO_TRANSPORTE_'+r.deslocamento_id,deslocamento_id:r.deslocamento_id,estadia_id:r.estadia_id||'',viagem_id:state.trip.id,categoria:'TRANSPORTE',tipo_transporte:r.tipo_transporte||'',descricao:[r.origem,r.destino].filter(Boolean).join(' → ')||r.empresa||'Transporte',valor:value,moeda:r.moeda||'BRL',status:r.status_custo||'ESTIMADO',data:r.data_saida||'',automatico:true};
     }).filter(Boolean);
     const food = (state.records.alimentacao || []).map(r => {
       const value=number(r.valor);
       if(value===null || value<0 || manual.some(e=>e.alimentacao_id===r.alimentacao_id && String(e.status).toUpperCase()!=='CANCELADO')) return null;
-      return {custo_id:'AUTO_ALIMENTACAO_'+r.alimentacao_id,alimentacao_id:r.alimentacao_id,estadia_id:r.estadia_id||'',viagem_id:state.trip.id,categoria:'ALIMENTAÇÃO',descricao:r.descricao||r.tipo||'Alimentação',valor:value,moeda:r.moeda||'BRL',status:r.status_custo||'ESTIMADO',data:r.data||'',automatico:true};
+      return {custo_id:'AUTO_ALIMENTACAO_'+r.alimentacao_id,alimentacao_id:r.alimentacao_id,estadia_id:r.estadia_id||'',viagem_id:state.trip.id,categoria:'ALIMENTAÇÃO',tipo:r.tipo||'',descricao:r.descricao||r.tipo||'Alimentação',valor:value,moeda:r.moeda||'BRL',status:r.status_custo||'ESTIMADO',data:r.data||'',automatico:true};
     }).filter(Boolean);
     return [...manual, ...generated, ...transport, ...food];
   }
@@ -163,6 +176,6 @@
     }
     return result;
   }
-  root.TravelCore = { parseCSV, toCSV, number, budget, selected, nights, travelers, hotelCost, personalShare, effectiveBudget, chooseHotel, validateRelations, hotelLink, hotelText };
+  root.TravelCore = { parseCSV, toCSV, number, budget, budgetGroups, selected, nights, travelers, hotelCost, personalShare, effectiveBudget, chooseHotel, validateRelations, hotelLink, hotelText };
   if (typeof module !== 'undefined') module.exports = root.TravelCore;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

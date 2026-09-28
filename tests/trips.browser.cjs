@@ -13,6 +13,8 @@ const baseURL=process.env.TEST_BASE_URL || 'http://localhost:8765';
     await page.goto(baseURL);
     await page.evaluate(data=>localStorage.setItem('meu-percurso-v1',JSON.stringify(data)),old);await page.reload();
     await page.getByRole('heading',{name:'Minhas viagens',exact:true}).waitFor();
+    const navLinks=await page.locator('#navigation a').evaluateAll(links=>links.map(link=>link.getAttribute('href')));
+    assert.ok(navLinks.indexOf('#calendario')>navLinks.indexOf('#orcamento'));assert.ok(navLinks.indexOf('#calendario')<navLinks.indexOf('#dados'));
     let saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('meu-percurso-v1')));assert.equal(saved.version,2);
     assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('meu-percurso-v1-antes-migracao-v2'))),old);
     await page.getByRole('button',{name:'+ Nova viagem',exact:true}).click();

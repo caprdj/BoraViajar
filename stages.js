@@ -5,7 +5,7 @@ const stageOf = record => state.records.estadias.find(s=>s.estadia_id===record.e
 function configureStages() {
   Object.assign(modules.estadias,{title:'Etapas da viagem',short:'Etapas',singular:'etapa',description:'Diferentes momentos no mesmo planejamento. Defina datas, companhia e planos para cada etapa.'});
   modules.estadias.fields=[field('nome','Nome da etapa','text',true),field('cidade','Cidade','text',true),field('ordem','Ordem na viagem','number',true),field('objetivo_principal','Objetivo',['CONGRESSO','TURISMO','TRABALHO','OUTRO']),field('data_inicio','Início / check-in','date'),field('data_fim','Fim / check-out','date'),field('numero_viajantes','Viajantes (incluindo você)','number',true),field('acompanhantes','Quem vai com você?'),obs];
-  for(const key of ['hoteis','roteiro','orcamento','lugares','compromissos','deslocamentos']) modules[key].fields.unshift(field('estadia_id','Etapa da viagem','stage',key==='hoteis'));
+  for(const key of ['hoteis','roteiro','orcamento','lugares','compromissos','deslocamentos','alimentacao']) modules[key].fields.unshift(field('estadia_id','Etapa da viagem','stage',key==='hoteis'));
   modules.hoteis.fields.splice(7,0,field('numero_quartos','Quartos cotados','number'));
   modules.hoteis.fields.find(f=>f.key==='preco_diaria').label='Diária por quarto (R$)';
   modules.hoteis.fields.find(f=>f.key==='numero_noites').label='Noites da cotação (vazio = etapa)';
@@ -23,7 +23,7 @@ function stagesOverview() {
 }
 function stageToolbar() {
   if(page==='estadias') return `<div class="notice">Datas, número de viajantes e hospedagem podem mudar a cada etapa. A divisão de custos só é aplicada quando você escolhe IGUAL ou PERSONALIZADO.</div><div class="toolbar"><button class="button" data-action="stage-model">Modelo: congresso + turismo em 2 destinos</button></div>`;
-  if(!['hoteis','roteiro','orcamento','lugares','compromissos','deslocamentos'].includes(page)) return '';
+  if(!['hoteis','roteiro','orcamento','lugares','compromissos','deslocamentos','alimentacao'].includes(page)) return '';
   let html=`<div class="stage-tools">${stageSelect()}<a class="text-link" href="#estadias">Gerenciar etapas ↗</a></div>`;
   if(page==='orcamento') html+=`<section class="panel share-summary"><span class="eyebrow">SUA PARTE NO PLANEJAMENTO</span><strong>${totalText(personalTotals(scopedExpenses()))}</strong><p class="muted">INDIVIDUAL: você paga tudo. IGUAL: divide entre os viajantes da etapa. PERSONALIZADO: usa a parte informada.</p></section>`;
   if(page==='hoteis' && !rows('estadias').length) html+='<p class="notice">Comece criando as etapas da viagem. Depois, vincule cada cotação à etapa correspondente.</p>';
