@@ -4,7 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 OUTPUT = ROOT / 'dist'
-ASSETS = ['index.html', 'styles.css', 'app.js', 'core.js', 'stages.js', 'trips.js', 'trips-ui.js', 'comparison.js', 'comparison-ui.js', 'icon.svg', 'coast.svg',
+ASSETS = ['index.html', 'styles.css', 'app.js', 'core.js', 'stages.js', 'trips.js', 'trips-ui.js', 'comparison.js', 'comparison-ui.js', 'planning.js', 'planning-ui.js', 'icon.svg', 'coast.svg',
           'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png']
 def build():
     if OUTPUT.exists():

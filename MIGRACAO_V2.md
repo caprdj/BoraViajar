@@ -2,6 +2,10 @@
 
 Esta entrega cobre somente múltiplas viagens. Comparações, câmbio, cenários combinados e o novo modelo financeiro continuam fora desta versão.
 
+## Compatibilidade 2.2
+
+A versão 2.2 mantém `version: 2` e acrescenta somente a coleção opcional `combined_scenarios`. Ao abrir ou restaurar um backup 2.0/2.1 sem essa propriedade, o app trabalha sobre uma cópia e inicializa a coleção vazia antes da validação. IDs, viagens, etapas, imagens e demais registros permanecem intactos. Depois do primeiro salvamento ou da próxima exportação, a nova coleção é incluída no JSON. A migração é idempotente e cenários só podem referenciar viagens existentes.
+
 ## Estrutura e compatibilidade
 
 O armazenamento mantém a chave `meu-percurso-v1`, agora com `version: 2`, `trips[]`, `active_trip_id` e `records`. Todas as coleções recebem `viagem_id`, inclusive etapas, hotéis e cenários. As etapas continuam dentro de cada viagem.
