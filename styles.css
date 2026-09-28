@@ -53,3 +53,11 @@
 .ordering-active .reorder-item{border-color:#bcd0b8;background:#fbfcf9;box-shadow:0 2px 8px rgba(36,92,82,.05)}
 .ordering-active .order-btn{border-color:var(--green);background:#f2f7f1}
 @media(max-width:700px){.order-btn{width:46px;height:46px;font-size:20px}.reorder-item{padding:14px}}
+.sync-indicator{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:20px;font-size:11px;font-weight:600;text-decoration:none;background:#f0f4ee;color:var(--green);border:1px solid #d4e0d1;transition:all .2s ease;letter-spacing:0}
+.sync-indicator:hover{background:#e3ede0}
+.sync-indicator.syncing{background:#fff8e8;color:#926a15;border-color:#ebd79e}
+.sync-indicator.error{background:#fdf0ee;color:#a8382b;border-color:#f0bebe}
+.sync-panel{border:1px solid #cfded0;background:#fcfdfb}
+.sync-badge-active{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#eaf5e8;color:#245c52;border-radius:6px;font-weight:600;font-size:11px;margin-bottom:8px}
+.sync-qr-box{display:flex;flex-direction:column;align-items:center;gap:12px;padding:24px;background:#fff;border:1px solid var(--line);border-radius:14px;margin-top:16px}
+.sync-qr-box img{border-radius:10px;box-shadow:0 4px 14px rgba(36,92,82,.08);border:1px solid #e3e9df}

@@ -69,13 +69,223 @@ function moveNav(key,direction) {
   if(page==='mais') render();
 }
 function toast(msg) { $('#toast').textContent = msg; $('#toast').classList.add('visible'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),4500); }
+const SYNC_CONFIG_KEY = 'bora-viajar-sync-config';
+const CloudSync = {
+  config: null,
+  status: 'idle',
+  lastSync: null,
+  errorMsg: '',
+  pushTimer: null,
+  init() {
+    try {
+      this.config = JSON.parse(localStorage.getItem(SYNC_CONFIG_KEY) || 'null');
+      this.lastSync = localStorage.getItem(SYNC_CONFIG_KEY + '-last');
+    } catch {}
+    const hash = window.location.hash || '';
+    if (hash.startsWith('#sync=')) {
+      try {
+        const raw = decodeURIComponent(hash.slice(6));
+        const conf = JSON.parse(decodeURIComponent(escape(atob(raw))));
+        if (conf && conf.token && conf.gistId) {
+          this.saveConfig(conf);
+          history.replaceState(null, '', window.location.pathname + '#viagens');
+          toast('Conectado à nuvem com sucesso! Sincronizando dados...');
+          this.pull(true);
+          return;
+        }
+      } catch (e) {
+        console.error('Erro ao ler link de sincronização:', e);
+      }
+    }
+    if (this.config && this.config.token) {
+      this.pull();
+    }
+    this.updateTopbar();
+    window.addEventListener('focus', () => {
+      if (this.config && this.config.token && this.status !== 'syncing') this.pull();
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && this.config && this.config.token && this.status !== 'syncing') this.pull();
+    });
+  },
+  saveConfig(conf) {
+    this.config = conf;
+    localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(conf));
+    this.updateTopbar();
+  },
+  disconnect() {
+    this.config = null;
+    localStorage.removeItem(SYNC_CONFIG_KEY);
+    localStorage.removeItem(SYNC_CONFIG_KEY + '-last');
+    this.status = 'idle';
+    this.lastSync = null;
+    toast('Sincronização em nuvem desconectada deste aparelho.');
+    this.updateTopbar();
+    if (page === 'dados') render();
+  },
+  async connectWithToken(token, existingGistId = '') {
+    token = token.trim();
+    if (!token) throw new Error('Informe o token do GitHub.');
+    this.status = 'syncing';
+    this.updateTopbar();
+    if (page === 'dados') render();
+    try {
+      let gistId = existingGistId.trim();
+      if (!gistId) {
+        const listRes = await fetch('https://api.github.com/gists?per_page=50', {
+          headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
+        });
+        if (!listRes.ok) {
+          if (listRes.status === 401) throw new Error('Token do GitHub inválido ou expirado. Verifique o token digitado.');
+          throw new Error(`Erro ao consultar GitHub (${listRes.status}).`);
+        }
+        const gists = await listRes.json();
+        const found = gists.find(g => g.files && g.files['bora-viajar-sync.json']);
+        if (found) {
+          gistId = found.id;
+        } else {
+          const payload = { version: 2, app: 'BoraViajar', updated_at: new Date().toISOString(), data: library };
+          const createRes = await fetch('https://api.github.com/gists', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              description: 'Bora Viajar - Dados sincronizados (privado)',
+              public: false,
+              files: { 'bora-viajar-sync.json': { content: JSON.stringify(payload, null, 2) } }
+            })
+          });
+          if (!createRes.ok) throw new Error(`Falha ao criar arquivo no GitHub (${createRes.status}).`);
+          const created = await createRes.json();
+          gistId = created.id;
+        }
+      }
+      this.saveConfig({ token, gistId });
+      this.status = 'synced';
+      this.lastSync = new Date().toISOString();
+      localStorage.setItem(SYNC_CONFIG_KEY + '-last', this.lastSync);
+      toast('Sincronização ativada com sucesso!');
+      await this.pull(true);
+    } catch (err) {
+      this.status = 'error';
+      this.errorMsg = err.message;
+      toast('Erro ao conectar: ' + err.message);
+      this.updateTopbar();
+      if (page === 'dados') render();
+      throw err;
+    }
+  },
+  async push() {
+    if (!this.config || !this.config.token || !this.config.gistId) return;
+    this.status = 'syncing';
+    this.updateTopbar();
+    const payload = { version: 2, app: 'BoraViajar', updated_at: new Date().toISOString(), data: library };
+    try {
+      const res = await fetch(`https://api.github.com/gists/${this.config.gistId}`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${this.config.token}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: { 'bora-viajar-sync.json': { content: JSON.stringify(payload) } } })
+      });
+      if (!res.ok) throw new Error(`Status ${res.status}`);
+      this.status = 'synced';
+      this.lastSync = new Date().toISOString();
+      localStorage.setItem(SYNC_CONFIG_KEY + '-last', this.lastSync);
+    } catch (e) {
+      this.status = 'error';
+      this.errorMsg = e.message;
+    } finally {
+      this.updateTopbar();
+      if (page === 'dados') render();
+    }
+  },
+  queuePush() {
+    if (!this.config || !this.config.token) return;
+    clearTimeout(this.pushTimer);
+    this.status = 'syncing';
+    this.updateTopbar();
+    this.pushTimer = setTimeout(() => this.push(), 1200);
+  },
+  async pull(force = false) {
+    if (!this.config || !this.config.token || !this.config.gistId) return;
+    if (this.status === 'syncing' && !force) return;
+    this.status = 'syncing';
+    this.updateTopbar();
+    try {
+      const res = await fetch(`https://api.github.com/gists/${this.config.gistId}?_t=${Date.now()}`, {
+        headers: { 'Authorization': `Bearer ${this.config.token}`, 'Accept': 'application/vnd.github+json' }
+      });
+      if (!res.ok) throw new Error(`Falha ao buscar dados (${res.status})`);
+      const gist = await res.json();
+      const file = gist.files && gist.files['bora-viajar-sync.json'];
+      if (!file || !file.content) throw new Error('Arquivo de dados não encontrado.');
+      const cloudPayload = JSON.parse(file.content);
+      const cloudData = cloudPayload.data || cloudPayload;
+      const cloudUpdated = cloudPayload.updated_at ? new Date(cloudPayload.updated_at).getTime() : 0;
+      const localUpdated = this.lastSync ? new Date(this.lastSync).getTime() : 0;
+      const localTripsCount = (library.trips || []).length;
+      const cloudTripsCount = (cloudData.trips || []).length;
+      if (force || cloudUpdated > localUpdated || (localTripsCount === 0 && cloudTripsCount > 0)) {
+        const migrated = TravelTrips.migrate(cloudData);
+        library = migrated;
+        state = TravelTrips.view(library);
+        const serialized = JSON.stringify(library);
+        localStorage.setItem(STORE, serialized);
+        storedSnapshot = serialized;
+        this.lastSync = cloudPayload.updated_at || new Date().toISOString();
+        localStorage.setItem(SYNC_CONFIG_KEY + '-last', this.lastSync);
+        this.status = 'synced';
+        render();
+        nav();
+        toast('Dados atualizados da nuvem.');
+      } else {
+        this.status = 'synced';
+      }
+    } catch (err) {
+      this.status = 'error';
+      this.errorMsg = err.message;
+    } finally {
+      this.updateTopbar();
+      if (page === 'dados') render();
+    }
+  },
+  getMagicLink() {
+    if (!this.config || !this.config.token) return '';
+    const payload = JSON.stringify({ token: this.config.token, gistId: this.config.gistId });
+    const encoded = btoa(unescape(encodeURIComponent(payload)));
+    return `${window.location.origin}${window.location.pathname}#sync=${encoded}`;
+  },
+  updateTopbar() {
+    const el = $('#sync-indicator');
+    if (!el) return;
+    if (!this.config || !this.config.token) {
+      el.innerHTML = '';
+      el.style.display = 'none';
+      return;
+    }
+    el.style.display = 'inline-flex';
+    if (this.status === 'syncing') {
+      el.className = 'sync-indicator syncing';
+      el.innerHTML = '<span>⟳</span> Sincronizando...';
+      el.title = 'Sincronizando com a nuvem...';
+    } else if (this.status === 'error') {
+      el.className = 'sync-indicator error';
+      el.innerHTML = '<span>⚠</span> Erro na nuvem';
+      el.title = this.errorMsg || 'Erro ao sincronizar com a nuvem';
+    } else {
+      el.className = 'sync-indicator synced';
+      el.innerHTML = '<span>☁</span> Salvo na nuvem';
+      el.title = 'Tudo sincronizado entre seus dispositivos';
+    }
+  }
+};
 function persist(next) {
   if (loadError) { toast('O armazenamento não pôde ser lido. Exporte uma cópia dos dados antes de continuar em outro navegador.'); return false; }
   try {
     const all=next.trips?TravelTrips.validate(next):TravelTrips.merge(library,next);
     if(localStorage.getItem(STORE)!==storedSnapshot) throw new Error('Os dados mudaram em outra aba. Recarregue a página antes de salvar.');
     const serialized=JSON.stringify(all);localStorage.setItem(STORE,serialized);
-    storedSnapshot=serialized;library=all;state=TravelTrips.view(library);storageBlocked=false;return true;
+    storedSnapshot=serialized;library=all;state=TravelTrips.view(library);storageBlocked=false;
+    CloudSync.queuePush();
+    return true;
   } catch(error) { toast('Não foi possível salvar. '+error.message);return false; }
 }
 function nav() {
@@ -147,7 +357,73 @@ function collection() {
   const statuses=[...new Set(rows(page).map(r=>r.status||r.status_custo).filter(Boolean))];
   return html+`<div class="toolbar"><input class="search" id="search" type="search" placeholder="Buscar em ${mod.short.toLowerCase()}..." aria-label="Buscar registros" value="${esc(search)}">${statuses.length?`<select id="filter" aria-label="Filtrar por situação"><option value="">Todas as situações</option>${statuses.map(s=>`<option ${filter===s?'selected':''}>${esc(s)}</option>`).join('')}</select>`:''}<button class="button" data-action="import-csv">Importar CSV</button><button class="button" data-action="export-csv" ${rows(page).length?'':'disabled'}>Exportar CSV</button></div><div id="records" class="cards">${recordsHTML()}</div>`;
 }
-function dataPage() { return heading('Seus dados, com você','Guarde uma cópia do planejamento e continue de onde parou.')+`<div class="notice">Os dados são salvos apenas neste navegador e neste endereço. Não há sincronização automática entre computador e celular. Mantenha um backup antes de limpar o navegador ou mudar de endereço.</div><div class="data-grid"><section class="panel"><h2>Backup completo</h2><p>Salve todas as viagens, suas configurações e registros em um arquivo JSON.</p><button class="button primary" data-action="backup">Exportar backup</button><button class="button" data-action="restore">Restaurar backup</button></section><section class="panel"><h2>Do notebook para o app</h2><p>Em cada seção, use “Importar CSV” e selecione o arquivo correspondente da pasta <strong>01_dados</strong> do seu Google Drive. As colunas extras são preservadas.</p><p>O notebook enviado contém código e saídas de execução; os bancos CSV não vieram junto. Por isso, nenhuma hospedagem, reserva ou despesa foi presumida.</p><button class="button" data-action="import-config">Importar config_viagem.json</button></section><section class="panel"><h2>Acesso pelo celular</h2><p>Na versão hospedada, abra o endereço do Bora Viajar no navegador do celular. No iPhone, use Compartilhar → Adicionar à Tela de Início. No Android, procure Adicionar à tela inicial ou Instalar app no menu do navegador.</p><p>O endereço hospedado funciona sem o computador ligado e precisa de internet. Para transferir seu planejamento da versão local, exporte o backup e restaure-o neste endereço.</p></section><section class="panel"><h2>Sua base original</h2><p>Esta interface facilita o planejamento diário. O notebook continua responsável pelos cálculos avançados de ranking, geocodificação e mobilidade.</p><p>Os dados do navegador não alteram os arquivos do notebook. Para intercâmbio, use os arquivos CSV; para uma cópia fiel de todo o app, use o backup JSON.</p></section></div>`; }
+function dataPage() {
+  const isSync = CloudSync.config && CloudSync.config.token;
+  const syncHtml = isSync ? `
+    <section class="panel sync-panel">
+      <div class="section-top">
+        <div>
+          <span class="sync-badge-active">● Sincronização em nuvem ativa</span>
+          <h2>Bora Viajar conectado à sua nuvem privada</h2>
+          <p class="muted">Os dados cadastrados ou alterados no computador ou no celular são sincronizados automaticamente em ambos.</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="button primary" data-action="sync-now">Sincronizar agora ↻</button>
+          <button class="button subtle danger" data-action="sync-disconnect">Desconectar</button>
+        </div>
+      </div>
+      <div class="sync-qr-box">
+        <strong>Conectar smartphone</strong>
+        <p class="muted" style="text-align:center;max-width:440px;font-size:12px;margin:0">Abra a câmera do celular para ler o QR Code abaixo e abrir o Bora Viajar já conectado e atualizado:</p>
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(CloudSync.getMagicLink())}" alt="QR Code para celular" width="180" height="180">
+        <button class="button" data-action="sync-copy-link">Copiar link de conexão para o celular 📋</button>
+        <small class="muted">Você também pode enviar este link para o WhatsApp/e-mail e abrir no navegador do smartphone.</small>
+      </div>
+      <div style="margin-top:16px;font-size:11px;color:var(--muted)">
+        <span>Gist Privado: <code>${esc(CloudSync.config.gistId)}</code></span> · 
+        <span>Última sincronização: <strong>${CloudSync.lastSync ? new Date(CloudSync.lastSync).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : 'há pouco'}</strong></span>
+      </div>
+    </section>
+  ` : `
+    <section class="panel sync-panel">
+      <div class="section-top">
+        <div>
+          <h2>Sincronização Automática (PC ⇄ Smartphone)</h2>
+          <p class="muted">Mantenha suas viagens sempre atualizadas no computador e no celular automaticamente, sem compartilhar com ninguém.</p>
+        </div>
+      </div>
+      <p style="font-size:13px;line-height:1.6">O Bora Viajar salva seus dados de forma 100% privada em um arquivo secreto (Gist) na sua própria conta do GitHub. Somente você tem acesso aos seus dados.</p>
+      <form id="sync-form" style="display:flex;flex-direction:column;gap:12px;max-width:550px;margin-top:14px">
+        <label style="font-size:12px;font-weight:600">
+          Token de Acesso do GitHub:
+          <input type="password" id="sync-token-input" placeholder="Cole seu token do GitHub (ghp_...)" required style="width:100%;margin-top:4px;padding:10px;border:1px solid #c8d4c3;border-radius:8px">
+        </label>
+        <div style="font-size:11px;color:var(--muted)">
+          <a href="https://github.com/settings/tokens/new?scopes=gist&description=BoraViajar-Sincronizacao" target="_blank" rel="noopener noreferrer" style="color:var(--green);text-decoration:underline;font-weight:600">Clique aqui para gerar o token no GitHub ↗</a> (já vem com a permissão <strong>gist</strong> pré-marcada). Na página do GitHub, role até o final, clique em "Generate token" e cole o código gerado aqui.
+        </div>
+        <div style="display:flex;gap:10px;margin-top:8px">
+          <button type="submit" class="button primary">Conectar e Ativar Sincronização</button>
+        </div>
+      </form>
+      <div style="margin-top:18px;padding-top:14px;border-top:1px dashed var(--line);font-size:12px">
+        <strong>Já conectou no PC e quer conectar este celular?</strong>
+        <p class="muted" style="margin:4px 0 8px">Se você recebeu o link de conexão gerado no PC, cole-o aqui para conectar:</p>
+        <div style="display:flex;gap:8px;max-width:550px">
+          <input type="text" id="sync-magic-link-input" placeholder="Cole o link ou código de sincronização" style="flex:1;padding:8px 10px;border:1px solid #c8d4c3;border-radius:8px;font-size:12px">
+          <button type="button" class="button" data-action="sync-apply-magic">Conectar</button>
+        </div>
+      </div>
+    </section>
+  `;
+
+  return heading('Seus dados, com você','Guarde uma cópia do planejamento e sincronize entre seus aparelhos.') + syncHtml + `
+    <div class="data-grid">
+      <section class="panel"><h2>Backup completo</h2><p>Salve todas as viagens, suas configurações e registros em um arquivo JSON local.</p><button class="button primary" data-action="backup">Exportar backup</button><button class="button" data-action="restore">Restaurar backup</button></section>
+      <section class="panel"><h2>Do notebook para o app</h2><p>Em cada seção, use “Importar CSV” e selecione o arquivo correspondente da pasta <strong>01_dados</strong> do seu Google Drive. As colunas extras são preservadas.</p><button class="button" data-action="import-config">Importar config_viagem.json</button></section>
+      <section class="panel"><h2>Acesso pelo celular</h2><p>Na versão hospedada, abra o endereço do Bora Viajar no navegador do celular. No iPhone, use Compartilhar → Adicionar à Tela de Início. No Android, procure Adicionar à tela inicial ou Instalar app no menu do navegador.</p><p>Com a <strong>Sincronização em Nuvem ativa</strong> acima, qualquer alteração no celular ou no PC sincroniza instantaneamente nos dois!</p></section>
+      <section class="panel"><h2>Sua base original</h2><p>Esta interface facilita o planejamento diário. Os dados do navegador não alteram os arquivos do notebook. Para intercâmbio, use os arquivos CSV; para uma cópia fiel de todo o app, use o backup JSON.</p></section>
+    </div>`;
+}
 function maisPage() {
   const trip = state.trip;
   const reorderBtn = trip ? `<button class="button ${orderingNav?'primary':''}" type="button" data-action="toggle-nav-order" aria-pressed="${orderingNav}">${orderingNav?'Concluir':'Reordenar seções'}</button>` : '';
@@ -248,6 +524,10 @@ document.addEventListener('click',e=>{
   if(action==='edit')openEditor(button.dataset.id);
   if(action==='close')$('#editor').close();
   if(action==='backup')backup();
+  if(action==='sync-now'){CloudSync.pull(true);CloudSync.push();toast('Sincronização iniciada...');}
+  if(action==='sync-disconnect'){if(confirm('Deseja realmente desconectar a sincronização em nuvem deste aparelho? Seus dados locais serão mantidos.'))CloudSync.disconnect();}
+  if(action==='sync-copy-link'){const link=CloudSync.getMagicLink();if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(link).then(()=>toast('Link copiado! Abra no smartphone para conectar.')).catch(()=>prompt('Copie o link abaixo:',link));}else{prompt('Copie o link abaixo e abra no smartphone:',link);}}
+  if(action==='sync-apply-magic'){const val=($('#sync-magic-link-input')?.value||'').trim();if(!val){toast('Cole o link ou código de sincronização.');return;}try{let raw=val;if(val.includes('#sync='))raw=val.split('#sync=')[1];const conf=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(raw)))));if(!conf.token)throw new Error('Token não encontrado.');CloudSync.saveConfig(conf);toast('Conectado à nuvem! Sincronizando dados...');CloudSync.pull(true);}catch(err){toast('Link inválido: '+err.message);}}
   if(action==='toggle-nav-order'){orderingNav=!orderingNav;nav();if(page==='mais')render();}
   if(action==='nav-up')moveNav(button.dataset.key,-1);
   if(action==='nav-down')moveNav(button.dataset.key,1);
@@ -312,5 +592,17 @@ window.addEventListener('storage',e=>{
     search='';filter='';stageFilter='';editing=null;render();toast('Dados atualizados em outra aba.');
   } catch { loadError=true;storageBlocked=true;render();toast('A atualização de outra aba não pôde ser carregada. Recarregue a página.'); }
 });
+document.addEventListener('submit', async e => {
+  if (e.target.id === 'sync-form') {
+    e.preventDefault();
+    const token = ($('#sync-token-input')?.value || '').trim();
+    if (!token) return;
+    try {
+      await CloudSync.connectWithToken(token);
+    } catch {}
+  }
+});
 configureStages();
 render();
+CloudSync.init();
+
