@@ -33,7 +33,11 @@
   }
   function calendarEntries(library){
     const entries=[];
-    const push=(trip,type,label,startDate,startTime,endDate=startDate,endTime='',hash,id)=>{if(!Number.isFinite(point(startDate,startTime)))return;entries.push({trip_id:trip.id,trip_name:trip.nome,type,label,startDate,startTime:startTime||'',endDate:endDate||startDate,endTime:endTime||'',start:point(startDate,startTime),end:point(endDate||startDate,endTime,true),hash,id});};
+    const push=(trip,type,label,startDate,startTime,endDate=startDate,endTime='',hash,id)=>{
+      const start=point(startDate,startTime);if(!Number.isFinite(start))return;
+      const finalDate=endDate||startDate, finalTime=endTime||(startTime&&finalDate===startDate?startTime:'');
+      entries.push({trip_id:trip.id,trip_name:trip.nome,type,label,startDate,startTime:startTime||'',endDate:finalDate,endTime:endTime||'',start,end:point(finalDate,finalTime,!finalTime),hash,id});
+    };
     for(const trip of library.trips){
       push(trip,'Viagem',trip.nome,trip.data_inicio,'',trip.data_fim,'','viagens',trip.id);
       const state=root.TravelTrips.view(library,trip.id);
@@ -44,7 +48,9 @@
     }
     entries.sort((a,b)=>a.start-b.start||a.end-b.end);
     for(const entry of entries)entry.conflicts=[];
-    for(let i=0;i<entries.length;i++)for(let j=i+1;j<entries.length&&entries[j].start<=entries[i].end;j++)if(entries[i].trip_id!==entries[j].trip_id || ['Transporte','Evento'].includes(entries[i].type)||['Transporte','Evento'].includes(entries[j].type)){entries[i].conflicts.push(entries[j].id);entries[j].conflicts.push(entries[i].id);}
+    const scheduled=new Set(['Transporte','Evento']);
+    const canConflict=(a,b)=>(a.type==='Viagem'&&b.type==='Viagem'&&a.trip_id!==b.trip_id)||(scheduled.has(a.type)&&scheduled.has(b.type));
+    for(let i=0;i<entries.length;i++)for(let j=i+1;j<entries.length&&entries[j].start<=entries[i].end;j++)if(canConflict(entries[i],entries[j])){entries[i].conflicts.push(entries[j].id);entries[j].conflicts.push(entries[i].id);}
     return entries;
   }
   root.TravelPlanning={proximity,scenarioSummary,calendarEntries};
