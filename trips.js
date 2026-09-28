@@ -66,6 +66,7 @@
       if(!data.trip || !data.records) throw new Error('Backup antigo inválido.');
       data.version=2;data.trips=[data.trip];data.active_trip_id=data.trip.id;delete data.trip;
       for(const key of Object.keys(ids)) {
+        if(data.records[key]===undefined) data.records[key]=[];
         if(!Array.isArray(data.records[key])) throw new Error(`Seção inválida: ${key}.`);
         for(const r of data.records[key]) {
           if(!r || typeof r!=='object' || Array.isArray(r)) throw new Error('Registro antigo inválido.');
@@ -77,7 +78,7 @@
     if(data?.version===2) {
       if(data.combined_scenarios===undefined) data.combined_scenarios=[];
       // Keep older v2 backups compatible when a new planning collection is introduced.
-      if(data.records) for(const key of Object.keys(ids)) data.records[key] ||= [];
+      if(data.records) for(const key of Object.keys(ids)) if(data.records[key]===undefined) data.records[key]=[];
     }
     return validate(data);
   }

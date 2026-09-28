@@ -13,6 +13,8 @@ const baseURL=process.env.TEST_BASE_URL || 'http://localhost:8765';
     await page.goto(baseURL);
     await page.evaluate(data=>localStorage.setItem('meu-percurso-v1',JSON.stringify(data)),old);await page.reload();
     await page.getByRole('heading',{name:'Minhas viagens',exact:true}).waitFor();
+    const navLinks=await page.locator('#navigation a').evaluateAll(links=>links.map(link=>link.getAttribute('href')));
+    assert.ok(navLinks.indexOf('#calendario')>navLinks.indexOf('#orcamento'));assert.ok(navLinks.indexOf('#calendario')<navLinks.indexOf('#dados'));
     let saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('meu-percurso-v1')));assert.equal(saved.version,2);
     assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('meu-percurso-v1-antes-migracao-v2'))),old);
     await page.getByRole('button',{name:'+ Nova viagem',exact:true}).click();
@@ -67,6 +69,12 @@ const baseURL=process.env.TEST_BASE_URL || 'http://localhost:8765';
     await peer.locator('[data-action="settings"]').click();
     await page.evaluate(()=>{const d=JSON.parse(localStorage.getItem('meu-percurso-v1'));d.trips[0].nome='Atualizada em outra aba';localStorage.setItem('meu-percurso-v1',JSON.stringify(d));});
     await peer.locator('#editor').waitFor({state:'hidden'});await peer.getByRole('heading',{name:'Atualizada em outra aba',exact:true}).waitFor();await peer.close();
+    // Navigation remains usable and reports the failure if its independent order cannot be saved.
+    await page.goto(baseURL+'/#estadias');await page.getByRole('button',{name:'Reordenar',exact:true}).click();
+    await page.evaluate(()=>{const setItem=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='bora-viajar-nav-order')throw new DOMException('Quota full','QuotaExceededError');return setItem.call(this,key,value);};});
+    await page.getByRole('button',{name:'Mover Destinos para baixo',exact:true}).click();
+    await page.getByRole('status').filter({hasText:'Não foi possível salvar a ordem da navegação neste navegador.'}).waitFor();
+    assert.equal(await page.getByRole('button',{name:'Concluir',exact:true}).isVisible(),true);
     // A migration write failure must leave the source intact and block all writes.
     await page.evaluate(data=>localStorage.setItem('meu-percurso-v1',JSON.stringify(data)),old);
     await page.addInitScript(()=>{Storage.prototype.setItem=function(){throw new DOMException('Quota full','QuotaExceededError');};});await page.reload();

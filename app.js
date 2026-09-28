@@ -61,7 +61,10 @@ function navOrder() {
 }
 function moveNav(key,direction) {
   const order=navOrder(),from=order.indexOf(key),to=from+direction;if(from<0||to<0||to>=order.length)return;
-  [order[from],order[to]]=[order[to],order[from]];localStorage.setItem(NAV_STORE,JSON.stringify(order));nav();
+  [order[from],order[to]]=[order[to],order[from]];
+  try { localStorage.setItem(NAV_STORE,JSON.stringify(order)); }
+  catch { toast('Não foi possível salvar a ordem da navegação neste navegador.'); }
+  nav();
 }
 function toast(msg) { $('#toast').textContent = msg; $('#toast').classList.add('visible'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),4500); }
 function persist(next) {
@@ -74,7 +77,7 @@ function persist(next) {
   } catch(error) { toast('Não foi possível salvar. '+error.message);return false; }
 }
 function nav() {
-  const items = [['viagens','Minhas viagens'],['combinados','Cenários combinados'],['proximas','Viagens próximas'],['calendario','Calendário global'],...(state.trip?navOrder().map(k=>[k,modules[k].short]):[]),['dados','Meus dados'],['mais','Mais']];
+  const items = [['viagens','Minhas viagens'],...(state.trip?navOrder().map(k=>[k,modules[k].short]):[]),['combinados','Cenários combinados'],['proximas','Viagens próximas'],['calendario','Calendário global'],['dados','Meus dados'],['mais','Mais']];
   $('#navigation').classList.toggle('ordering',orderingNav);
   $('#navigation').innerHTML=items.map(([k,label])=>`<div class="nav-row ${modules[k]?'module-nav':''}"><a href="#${k}" class="nav-item ${(['viagens','roteiro','hoteis','orcamento','mais'].includes(k) || (!state.trip && k==='dados'))?'mobile-nav':''} ${k==='mais'?'mobile-only':''} ${page===k?'active':''}" ${page===k?'aria-current="page"':''}>${icon(k)}<span>${label}</span>${modules[k]?`<span class="count">${rows(k).length || '—'}</span>`:''}</a>${modules[k]&&orderingNav?`<span class="nav-order-controls"><button type="button" data-action="nav-up" data-key="${k}" aria-label="Mover ${esc(label)} para cima">↑</button><button type="button" data-action="nav-down" data-key="${k}" aria-label="Mover ${esc(label)} para baixo">↓</button></span>`:''}</div>`).join('');
   const toggle=$('#nav-order-toggle');if(toggle){toggle.textContent=orderingNav?'Concluir':'Reordenar';toggle.setAttribute('aria-pressed',String(orderingNav));}
@@ -131,7 +134,10 @@ function collection() {
   const mod=modules[page], totals=budget(scopedExpenses());
   let html=heading(mod.title,mod.description,`<button class="button primary" data-action="add">+ Adicionar</button>`);
   html+=stageToolbar();
-  if(page==='orcamento') html+=`<div class="stats budget-stats"><div class="stat"><div class="stat-top">Total registrado</div><strong>${totalText(totals)}</strong><small>Inclui estimados, confirmados e pagos</small></div><div class="stat"><div class="stat-top">Já pago</div><strong>${totalText(totals,'paid')}</strong><small>Somente despesas com situação PAGO</small></div></div><p class="notice">O orçamento reúne as despesas manuais, a hospedagem escolhida e os valores registrados em Alimentação e Transportes. As outras cotações de hospedagem ficam fora do total. Moedas diferentes são somadas separadamente, sem conversão.</p>`;
+  if(page==='orcamento') {
+    const groups=TravelCore.budgetGroups(scopedExpenses());
+    html+=`<div class="stats budget-stats"><div class="stat"><div class="stat-top">Total registrado</div><strong>${totalText(totals)}</strong><small>Inclui estimados, confirmados e pagos</small></div><div class="stat"><div class="stat-top">Já pago</div><strong>${totalText(totals,'paid')}</strong><small>Somente despesas com situação PAGO</small></div></div><section class="panel"><div class="section-top"><h2>Totais por categoria</h2></div><div class="stage-facts">${groups.map(g=>`<span>${esc(g.label)}<strong>${totalText(g.totals)}</strong><small>${g.count} despesa(s)</small></span>`).join('')||'<p class="muted">Os totais por categoria aparecerão aqui.</p>'}</div></section><p class="notice">O orçamento reúne as despesas manuais, a hospedagem escolhida e os valores registrados em Alimentação e Transportes. As outras cotações de hospedagem ficam fora do total. Moedas diferentes são somadas separadamente, sem conversão.</p>`;
+  }
   if(page==='hoteis') html+='<p class="notice">Compare hotéis por etapa. Toque em Escolher para incluir o custo no orçamento. Isso não efetua uma reserva.</p>';
   if(page==='cenarios') html+='<p class="notice">Use esta seção para alternativas da viagem aberta. Exemplo: “adiar uma semana”. Para avaliar realizar ambas, apenas uma ou mudar a ordem de várias viagens, use <a href="#combinados">Cenários combinados</a>.</p>';
   const statuses=[...new Set(rows(page).map(r=>r.status).filter(Boolean))];
