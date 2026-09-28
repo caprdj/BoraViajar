@@ -79,9 +79,11 @@ function persist(next) {
   } catch(error) { toast('Não foi possível salvar. '+error.message);return false; }
 }
 function nav() {
+  const topModules = state.trip ? navOrder().slice(0, 3) : [];
+  const mobileKeys = state.trip ? ['viagens', ...topModules, 'mais'] : ['viagens', 'dados', 'mais'];
   const items = [['viagens','Minhas viagens'],...(state.trip?[['inicio','Visão geral'],...navOrder().map(k=>[k,modules[k].short])]:[]),['combinados','Cenários combinados'],['proximas','Viagens próximas'],['calendario','Calendário global'],['dados','Meus dados'],['mais','Mais']];
   $('#navigation').classList.toggle('ordering',orderingNav);
-  $('#navigation').innerHTML=items.map(([k,label])=>`<div class="nav-row ${modules[k]?'module-nav':''}"><a href="#${k}" class="nav-item ${(['viagens','roteiro','hoteis','orcamento','mais'].includes(k) || (!state.trip && k==='dados'))?'mobile-nav':''} ${k==='mais'?'mobile-only':''} ${page===k?'active':''}" ${page===k?'aria-current="page"':''}>${icon(k)}<span>${label}</span>${modules[k]?`<span class="count">${rows(k).length || '—'}</span>`:''}</a>${modules[k]&&orderingNav?`<span class="nav-order-controls"><button type="button" data-action="nav-up" data-key="${k}" aria-label="Mover ${esc(label)} para cima">↑</button><button type="button" data-action="nav-down" data-key="${k}" aria-label="Mover ${esc(label)} para baixo">↓</button></span>`:''}</div>`).join('');
+  $('#navigation').innerHTML=items.map(([k,label])=>`<div class="nav-row ${modules[k]?'module-nav':''}"><a href="#${k}" class="nav-item ${mobileKeys.includes(k)?'mobile-nav':''} ${k==='mais'?'mobile-only':''} ${(page===k || (k==='mais' && !mobileKeys.includes(page)))?'active':''}" ${page===k?'aria-current="page"':''}>${icon(k)}<span>${label}</span>${modules[k]?`<span class="count">${rows(k).length || '—'}</span>`:''}</a>${modules[k]&&orderingNav?`<span class="nav-order-controls"><button type="button" data-action="nav-up" data-key="${k}" aria-label="Mover ${esc(label)} para cima">↑</button><button type="button" data-action="nav-down" data-key="${k}" aria-label="Mover ${esc(label)} para baixo">↓</button></span>`:''}</div>`).join('');
   const toggle=$('#nav-order-toggle');if(toggle){toggle.textContent=orderingNav?'Concluir':'Reordenar';toggle.setAttribute('aria-pressed',String(orderingNav));}
 }
 function heading(title,subtitle,action='') { return `<div class="page-heading"><div><span class="eyebrow">PLANEJAR TAMBÉM É PARTE DA VIAGEM</span><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div>${action}</div>`; }
@@ -246,7 +248,7 @@ document.addEventListener('click',e=>{
   if(action==='edit')openEditor(button.dataset.id);
   if(action==='close')$('#editor').close();
   if(action==='backup')backup();
-  if(action==='toggle-nav-order'){orderingNav=!orderingNav;nav();}
+  if(action==='toggle-nav-order'){orderingNav=!orderingNav;nav();if(page==='mais')render();}
   if(action==='nav-up')moveNav(button.dataset.key,-1);
   if(action==='nav-down')moveNav(button.dataset.key,1);
   if(action==='clear-search') { search='';filter='';stageFilter='';render(); }
