@@ -51,3 +51,6 @@ test('cross-trip foreign keys are rejected, backup roundtrip retains all trips',
   assert.deepEqual(t.migrate(JSON.parse(JSON.stringify(data))),data);
   data.records.orcamento.push({custo_id:'B1',hotel_id:'H1',viagem_id:'B'});assert.throws(()=>t.validate(data));
 });
+test('migration adds the food collection to existing version 2 backups',()=>{const data=t.migrate(legacy());delete data.records.alimentacao;const migrated=t.migrate(data);assert.deepEqual(migrated.records.alimentacao,[]);});
+test('migration adds the food collection to untouched version 1 backups',()=>{const data=legacy();delete data.records.alimentacao;assert.deepEqual(t.migrate(data).records.alimentacao,[]);});
+test('migration fills only absent collections and never replaces invalid stored data',()=>{const old=t.migrate(legacy());old.records.alimentacao=null;assert.throws(()=>t.migrate(old),/Seção inválida: alimentacao/);const legacyNull=legacy();legacyNull.records.alimentacao=null;assert.throws(()=>t.migrate(legacyNull),/Seção inválida: alimentacao/);});

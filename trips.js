@@ -1,7 +1,7 @@
 /* Versioned storage and isolated views for the existing trip modules. */
 (function(root) {
   'use strict';
-  const ids = {estadias:'estadia_id',hoteis:'hotel_id',deslocamentos:'deslocamento_id',lugares:'lugar_id',compromissos:'compromisso_id',roteiro:'roteiro_id',orcamento:'custo_id',cenarios:'cenario_id'};
+  const ids = {estadias:'estadia_id',hoteis:'hotel_id',deslocamentos:'deslocamento_id',alimentacao:'alimentacao_id',lugares:'lugar_id',compromissos:'compromisso_id',roteiro:'roteiro_id',orcamento:'custo_id',cenarios:'cenario_id'};
   const clone = value => structuredClone(value);
   const emptyRecords = () => Object.fromEntries(Object.keys(ids).map(k=>[k,[]]));
   const uid = () => 'V_' + crypto.randomUUID();
@@ -64,6 +64,7 @@
     const data=clone(input);
     if(data?.version===1) {
       if(!data.trip || !data.records) throw new Error('Backup antigo inválido.');
+      for(const key of Object.keys(ids)) if(data.records[key]===undefined) data.records[key]=[];
       data.version=2;data.trips=[data.trip];data.active_trip_id=data.trip.id;delete data.trip;
       for(const key of Object.keys(ids)) {
         if(!Array.isArray(data.records[key])) throw new Error(`Seção inválida: ${key}.`);
@@ -74,7 +75,11 @@
         }
       }
     }
-    if(data?.version===2 && data.combined_scenarios===undefined) data.combined_scenarios=[];
+    if(data?.version===2) {
+      if(data.combined_scenarios===undefined) data.combined_scenarios=[];
+      // Keep older v2 backups compatible when a new planning collection is introduced.
+      if(data.records) for(const key of Object.keys(ids)) if(data.records[key]===undefined) data.records[key]=[];
+    }
     return validate(data);
   }
   function merge(data, scoped) {

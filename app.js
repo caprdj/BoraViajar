@@ -1,11 +1,12 @@
 'use strict';
-const { parseCSV, toCSV, number: numeric, budget } = TravelCore;
+const { parseCSV, toCSV, number: numeric, budget, groupedBudget } = TravelCore;
 const STORE = 'meu-percurso-v1';
 const icons = {
   inicio:'M3 10 12 3l9 7v10H3z M9 20v-7h6v7',
   estadias:'M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0Z M15 10a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
   hoteis:'M3 21V4h14v17 M17 10h4v11 M7 8h2 M12 8h1 M7 12h2 M12 12h1 M8 21v-5h4v5',
   deslocamentos:'m3 13 7 1 7 7 2-1-3-8 5-5c2-3 0-5-3-3l-5 5-8-3-1 2 7 7z',
+  alimentacao:'M4 3v8a3 3 0 0 0 3 3v7 M7 3v8 M10 3v8 M17 3c-3 4-3 8 0 9v9 M17 3v18',
   lugares:'m12 3 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z',
   compromissos:'M4 5h16v16H4z M8 3v4 M16 3v4 M4 10h16 M8 14h2 M14 14h2',
   roteiro:'M6 5a2 2 0 1 1-4 0 2 2 0 0 1 4 0 M22 19a2 2 0 1 1-4 0 2 2 0 0 1 4 0 M8 5h7a4 4 0 0 1 0 8H9a3 3 0 0 0 0 6h7',
@@ -25,7 +26,8 @@ const obs = field('observacoes','Observações','textarea');
 const modules = {
   estadias:{title:'Destinos e estadias',short:'Destinos',singular:'estadia',id:'estadia_id',prefix:'EST',description:'Organize os destinos e o tempo em cada lugar.',fields:[field('nome','Nome da estadia','text',true),field('cidade','Cidade','text',true),field('data_inicio','Chegada','date'),field('data_fim','Saída','date'),field('objetivo_principal','Objetivo da estadia'),obs]},
   hoteis:{title:'Hospedagens',short:'Hospedagens',singular:'hospedagem',id:'hotel_id',prefix:'HOTEL',description:'Suas opções de hospedagem, com conforto em primeiro lugar.',fields:[field('nome','Nome do hotel','text',true),field('cidade','Cidade'),field('bairro','Bairro'),field('endereco','Endereço'),field('preco_diaria','Diária (R$)','number'),field('numero_noites','Número de noites','number'),field('preco_total','Total cotado (R$)','number'),field('fonte','Fonte da pesquisa'),field('link','Link da hospedagem','url'),field('nota','Nota publicada','number'),field('escala_notas_plataforma','Escala da nota',['10','5','100']),field('nota_conforto_plataforma','Nota de conforto publicada','number'),field('pontos_positivos','Pontos positivos','textarea'),field('pontos_negativos','Pontos de atenção','textarea'),obs]},
-  deslocamentos:{title:'Transportes',short:'Transportes',singular:'transporte',id:'deslocamento_id',prefix:'DES',description:'Da saída de casa ao próximo destino, tudo no mesmo lugar.',fields:[field('origem','Origem','text',true),field('destino','Destino','text',true),field('tipo_transporte','Transporte',['AVIÃO','ÔNIBUS','TRANSFER','CARRO','TREM','BARCO','OUTRO']),field('empresa','Empresa'),field('data_saida','Data de saída','date'),field('hora_saida','Horário de saída','time'),field('data_chegada','Data de chegada','date'),field('hora_chegada','Horário de chegada','time'),field('preco','Preço (R$)','number'),field('identificacao_servico','Voo ou serviço'),status,obs]},
+  deslocamentos:{title:'Transportes',short:'Transportes',singular:'transporte',id:'deslocamento_id',prefix:'DES',description:'Da saída de casa ao próximo destino, tudo no mesmo lugar.',fields:[field('origem','Origem','text',true),field('destino','Destino','text',true),field('tipo_transporte','Transporte',['AVIÃO','ÔNIBUS','TRANSFER','CARRO','TREM','BARCO','OUTRO']),field('empresa','Empresa'),field('data_saida','Data de saída','date'),field('hora_saida','Horário de saída','time'),field('data_chegada','Data de chegada','date'),field('hora_chegada','Horário de chegada','time'),field('preco','Preço','number'),field('moeda','Moeda',['BRL','USD','EUR']),field('status_custo','Situação do custo',['ESTIMADO','CONFIRMADO','PAGO','CANCELADO']),field('identificacao_servico','Voo ou serviço'),status,obs]},
+  alimentacao:{title:'Alimentação',short:'Alimentação',singular:'gasto com alimentação',id:'alimentacao_id',prefix:'ALI',description:'Planeje refeições e registre todos os gastos com alimentação.',fields:[field('descricao','Descrição','text',true),field('tipo','Tipo',['CAFÉ DA MANHÃ','ALMOÇO','JANTAR','LANCHE','MERCADO','OUTRO']),field('data','Data','date'),field('valor','Valor','number',true),field('moeda','Moeda',['BRL','USD','EUR']),field('status_custo','Situação do custo',['ESTIMADO','CONFIRMADO','PAGO','CANCELADO']),obs]},
   lugares:{title:'Lugares para conhecer',short:'Lugares',singular:'lugar',id:'lugar_id',prefix:'LUG',description:'Guarde os lugares e experiências que despertam sua curiosidade.',fields:[field('nome','Nome do lugar','text',true),field('cidade','Cidade'),field('categoria','Categoria',['NATUREZA','GASTRONOMIA','MUSEU','ARQUITETURA','GEOLOGIA','PRAIA','OUTRO']),field('prioridade','Prioridade',['ALTA','MÉDIA','BAIXA']),field('endereco','Endereço'),field('duracao_estimada_min','Duração estimada (min)','number'),field('periodo_preferencial','Melhor período',['MANHÃ','TARDE','NOITE','LIVRE']),field('fonte','Fonte'),status,obs]},
   compromissos:{title:'Eventos e compromissos',short:'Eventos',singular:'compromisso',id:'compromisso_id',prefix:'COMP',description:'Reserve espaço para os encontros que já têm data.',fields:[field('nome','Nome do compromisso','text',true),field('tipo','Tipo',['CONGRESSO','RESERVA','VISITA','REUNIÃO','OUTRO']),field('data_inicio','Data de início','date',true),field('hora_inicio','Horário inicial','time'),field('data_fim','Data de término','date'),field('hora_fim','Horário final','time'),field('local','Local'),status,obs]},
   roteiro:{title:'Meu roteiro',short:'Roteiro',singular:'atividade',id:'roteiro_id',prefix:'ROT',description:'Dê ritmo à viagem, um dia de cada vez.',fields:[field('titulo','Título da atividade','text',true),field('data','Dia','date',true),field('hora_inicio','Horário inicial','time'),field('hora_fim','Horário final','time'),field('cidade','Cidade'),field('tipo_item','Tipo',['ATIVIDADE','DESLOCAMENTO','EVENTO','TEMPO LIVRE','REFEIÇÃO']),status,obs]},
@@ -33,6 +35,7 @@ const modules = {
   cenarios:{title:'Cenários de viagem',short:'Cenários',singular:'cenário',id:'cenario_id',prefix:'CEN',description:'Registre alternativas antes de escolher o seu percurso.',fields:[field('nome','Nome do cenário','text',true),field('descricao','Descrição','textarea'),field('data_inicio','Início','date'),field('data_fim','Fim','date'),field('custo_total','Custo estimado manual (R$)','number'),field('status','Situação',['EM ANÁLISE','PREFERIDO','DESCARTADO']),obs]},
 };
 const initial = () => ({version:2,trips:[],active_trip_id:null,combined_scenarios:[],records:Object.fromEntries(Object.keys(modules).map(k=>[k,[]]))});
+const NAV_STORE = 'bora-viajar-nav-order';
 let library = TravelTrips.migrate(initial()), state = TravelTrips.view(library), storageBlocked = false, loadError = false, storedSnapshot = null;
 try {
   const raw=localStorage.getItem(STORE);storedSnapshot=raw;
@@ -51,7 +54,17 @@ const date = v => /^\d{4}-\d{2}-\d{2}$/.test(v || '') ? new Date(v+'T12:00:00').
 const money = (v, currency='BRL') => { try { return new Intl.NumberFormat('pt-BR',{style:'currency',currency}).format(numeric(v) ?? 0); } catch { return `${esc(currency)} ${numeric(v) ?? 0}`; } };
 const rows = k => k === 'orcamento' ? TravelCore.effectiveBudget(state) : state.records[k] || [];
 const titleOf = r => r.nome || r.titulo || r.descricao || [r.origem,r.destino].filter(Boolean).join(' → ') || 'Sem título';
-let page = '', search = '', filter = '', editing = null, importMode = '', toastTimer;
+let page = '', search = '', filter = '', editing = null, importMode = '', toastTimer, orderingNav = false;
+function navOrder() {
+  let saved=[];try { saved=JSON.parse(localStorage.getItem(NAV_STORE)||'[]'); } catch {}
+  const keys=Object.keys(modules);return [...saved.filter(k=>keys.includes(k)),...keys.filter(k=>!saved.includes(k))];
+}
+function moveNav(key,direction) {
+  const order=navOrder(),from=order.indexOf(key),to=from+direction;if(from<0||to<0||to>=order.length)return;
+  [order[from],order[to]]=[order[to],order[from]];
+  try { localStorage.setItem(NAV_STORE,JSON.stringify(order));nav(); }
+  catch { toast('Não foi possível salvar a ordem da navegação neste navegador.'); }
+}
 function toast(msg) { $('#toast').textContent = msg; $('#toast').classList.add('visible'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),4500); }
 function persist(next) {
   if (loadError) { toast('O armazenamento não pôde ser lido. Exporte uma cópia dos dados antes de continuar em outro navegador.'); return false; }
@@ -63,8 +76,10 @@ function persist(next) {
   } catch(error) { toast('Não foi possível salvar. '+error.message);return false; }
 }
 function nav() {
-  const items = [['viagens','Minhas viagens'],['combinados','Cenários combinados'],['proximas','Viagens próximas'],['calendario','Calendário global'],...(state.trip?[['inicio','Visão geral'],...Object.entries(modules).map(([k,v])=>[k,v.short])]:[]),['dados','Meus dados'],['mais','Mais']];
-  $('#navigation').innerHTML=items.map(([k,label])=>`<a href="#${k}" class="nav-item ${(['viagens','roteiro','hoteis','orcamento','mais'].includes(k) || (!state.trip && k==='dados'))?'mobile-nav':''} ${k==='mais'?'mobile-only':''} ${page===k?'active':''}" ${page===k?'aria-current="page"':''}>${icon(k)}<span>${label}</span>${modules[k]?`<span class="count">${rows(k).length || '—'}</span>`:''}</a>`).join('');
+  const items = [['viagens','Minhas viagens'],...(state.trip?navOrder().map(k=>[k,modules[k].short]):[]),['combinados','Cenários combinados'],['proximas','Viagens próximas'],['calendario','Calendário global'],['dados','Meus dados'],['mais','Mais']];
+  $('#navigation').classList.toggle('ordering',orderingNav);
+  $('#navigation').innerHTML=items.map(([k,label])=>`<div class="nav-row ${modules[k]?'module-nav':''}"><a href="#${k}" class="nav-item ${(['viagens','roteiro','hoteis','orcamento','mais'].includes(k) || (!state.trip && k==='dados'))?'mobile-nav':''} ${k==='mais'?'mobile-only':''} ${page===k?'active':''}" ${page===k?'aria-current="page"':''}>${icon(k)}<span>${label}</span>${modules[k]?`<span class="count">${rows(k).length || '—'}</span>`:''}</a>${modules[k]&&orderingNav?`<span class="nav-order-controls"><button type="button" data-action="nav-up" data-key="${k}" aria-label="Mover ${esc(label)} para cima">↑</button><button type="button" data-action="nav-down" data-key="${k}" aria-label="Mover ${esc(label)} para baixo">↓</button></span>`:''}</div>`).join('');
+  const toggle=$('#nav-order-toggle');if(toggle){toggle.textContent=orderingNav?'Concluir':'Reordenar';toggle.setAttribute('aria-pressed',String(orderingNav));}
 }
 function heading(title,subtitle,action='') { return `<div class="page-heading"><div><span class="eyebrow">PLANEJAR TAMBÉM É PARTE DA VIAGEM</span><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div>${action}</div>`; }
 function totalText(totals, key='total') { return Object.entries(totals).map(([c,v])=>money(v[key],c)).join(' + ') || money(0); }
@@ -101,7 +116,7 @@ function recordCard(key,r) {
   if(r.empresa) meta.push(r.empresa);
   if(r.nota && r.escala_notas_plataforma) meta.push(`Nota publicada: ${r.nota}/${r.escala_notas_plataforma}`);
   if(r.duracao_estimada_min) meta.push(`${r.duracao_estimada_min} min`);
-  const price=key==='orcamento'?r.valor:key==='hoteis'?r.preco_diaria:key==='cenarios'?r.custo_total:r.preco;
+  const price=key==='orcamento'||key==='alimentacao'?r.valor:key==='hoteis'?r.preco_diaria:key==='cenarios'?r.custo_total:r.preco;
   const validLink = /^https?:\/\//i.test(r.link||'');
   return `<article class="record"><span class="tag ${['EM PESQUISA','ESTIMADO','EM ANÁLISE'].includes(r.status)?'warm':''}">${esc(r.status || r.categoria || (key==='hoteis'?'OPÇÃO EM PESQUISA':modules[key].short.toUpperCase()))}</span><h2>${esc(titleOf(r))}</h2><div class="record-meta">${meta.map(s=>`<span>${esc(s)}</span>`).join('')}</div>${numeric(price)!==null?`<div class="record-price">${money(price,r.moeda||'BRL')} ${key==='hoteis'?'<small class="muted">/ noite</small>':''}</div>`:''}${r.observacoes?`<p class="record-note">${esc(r.observacoes)}</p>`:''}<div class="record-actions">${validLink?`<a class="button" href="${esc(r.link)}" target="_blank" rel="noopener noreferrer">Abrir link ↗</a>`:''}<button class="button" data-action="edit" data-id="${esc(r[modules[key].id])}">Editar</button><button class="button danger" data-action="delete" data-id="${esc(r[modules[key].id])}">Excluir</button></div></article>`;
 }
@@ -118,7 +133,10 @@ function collection() {
   const mod=modules[page], totals=budget(scopedExpenses());
   let html=heading(mod.title,mod.description,`<button class="button primary" data-action="add">+ Adicionar</button>`);
   html+=stageToolbar();
-  if(page==='orcamento') html+=`<div class="stats budget-stats"><div class="stat"><div class="stat-top">Total registrado</div><strong>${totalText(totals)}</strong><small>Inclui estimados, confirmados e pagos</small></div><div class="stat"><div class="stat-top">Já pago</div><strong>${totalText(totals,'paid')}</strong><small>Somente despesas com situação PAGO</small></div></div><p class="notice">Registre cada despesa uma vez. A hospedagem escolhida de cada etapa entra automaticamente no orçamento. As outras cotações ficam fora do total. Transportes ainda precisam ser lançados como despesa. Moedas diferentes são somadas separadamente, sem conversão.</p>`;
+  if(page==='orcamento') {
+    const groups=groupedBudget(scopedExpenses());
+    html+=`<div class="stats budget-stats"><div class="stat"><div class="stat-top">Total registrado</div><strong>${totalText(totals)}</strong><small>Inclui estimados, confirmados e pagos</small></div><div class="stat"><div class="stat-top">Já pago</div><strong>${totalText(totals,'paid')}</strong><small>Somente despesas com situação PAGO</small></div></div><section class="panel budget-groups"><div class="section-top"><h2>Totais por categoria e tipo</h2></div><div class="budget-group-grid">${groups.length?groups.map(g=>`<div><span>${esc(g.categoria)}</span><strong>${esc(g.tipo||'GERAL')}</strong><b>${money(g.valor,g.moeda)}</b><small>${g.quantidade} despesa(s)${g.pago?` · ${money(g.pago,g.moeda)} pago`:''}</small></div>`).join(''):'<p class="muted">Os totais agrupados aparecerão quando você adicionar despesas.</p>'}</div></section><p class="notice">Despesas da mesma categoria e do mesmo tipo são somadas neste resumo — por exemplo, todos os jantares ou todos os transportes de avião. O orçamento reúne despesas manuais, a hospedagem escolhida e os valores registrados em Alimentação e Transportes. Moedas diferentes permanecem separadas, sem conversão.</p>`;
+  }
   if(page==='hoteis') html+='<p class="notice">Compare hotéis por etapa. Toque em Escolher para incluir o custo no orçamento. Isso não efetua uma reserva.</p>';
   if(page==='cenarios') html+='<p class="notice">Use esta seção para alternativas da viagem aberta. Exemplo: “adiar uma semana”. Para avaliar realizar ambas, apenas uma ou mudar a ordem de várias viagens, use <a href="#combinados">Cenários combinados</a>.</p>';
   const statuses=[...new Set(rows(page).map(r=>r.status).filter(Boolean))];
@@ -205,6 +223,9 @@ document.addEventListener('click',e=>{
   if(action==='edit')openEditor(button.dataset.id);
   if(action==='close')$('#editor').close();
   if(action==='backup')backup();
+  if(action==='toggle-nav-order'){orderingNav=!orderingNav;nav();}
+  if(action==='nav-up')moveNav(button.dataset.key,-1);
+  if(action==='nav-down')moveNav(button.dataset.key,1);
   if(action==='clear-search') { search='';filter='';stageFilter='';render(); }
   if(action==='export-csv')download(`${page}.csv`,toCSV(rows(page)),'text/csv;charset=utf-8');
   if(['import-csv','restore','import-config'].includes(action)) { importMode=action==='import-csv'?page:action;$('#file-input').accept=action==='import-csv'?'.csv':'.json';$('#file-input').value='';$('#file-input').click(); }
